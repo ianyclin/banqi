@@ -1,0 +1,614 @@
+/* 暗棋樣式（第二步 b-1：套用設計稿 docs/design/banqi-design-v1.html，作者 2026-10-24 定稿）。
+   兩套主題都上線：<html data-theme="wood">＝A 木與紙（預設）、data-theme="lacquer"＝B 漆器與墨；各有淺色／深色（<html data-scheme="light|dark">，
+   設定「跟系統」時由 index.html 開頭的小段和 app.js 照 prefers-color-scheme 放）。顏色全是 token，元件只用 token。
+   B 的棋盤淺色、深色都是同一只朱漆盤（設計稿：淺色只換盤子外面）。對方那邊（上面那條、左欄）用 --surface-opp：同一種紙、稍微灰一點。 */
+/* 棋子字型（banqi/fonts/，見那裡的 README 與 LICENSES/：SIL OFL 1.1，每個檔只有棋子的 14 個字）。只給 --font-piece 用，介面其他字不要指定這幾個 family */
+@font-face { font-family: "Banqi Kai TC"; src: url("fonts/lxgw-wenkai-tc.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Banqi TW-Kai"; src: url("fonts/tw-kai.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+/* Noto Serif TC 是可變字重（200–900，預設 200）：要寫範圍，棋子用 600 */
+@font-face { font-family: "Banqi Noto Serif"; src: url("fonts/noto-serif-tc.woff2") format("woff2"); font-weight: 200 900; font-style: normal; font-display: swap; }
+:root {
+  color-scheme: light;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans CJK TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  --font-title: "Songti TC", "Noto Serif CJK TC", "Noto Serif TC", serif;
+  --title-wt: 900;
+  --title-ls: .15em;
+  /* 棋子上的字：預設楷體（設定頁可換；app.js 的 FONTS 表會把選到的字型堆疊放到 <html> 的 style 上） */
+  --font-piece: "Banqi Kai TC", "Kaiti TC", "BiauKai", "Noto Serif TC", "Songti TC", "PingFang TC", serif;
+  --piece-wt: 700;
+  /* 動畫速度（設定頁：慢 1.6、中 1、快 .5、無 0）；所有 transition／animation 的秒數都乘這個 */
+  --anim: 1;
+  --fs-title: 1.5rem;
+  --fs-body: 1rem;
+  --fs-small: .8125rem;
+  --r-sm: 6px;
+  --r-md: 12px;
+  --btn-h: 44px;
+  --cell: 64px;
+  /* ---- A 木與紙・淺色（也是沒有 data-theme 時的預設） ---- */
+  --bg: #f4eee2;
+  --surface: #fbf7ef;
+  --surface-opp: #f1efea;
+  --tint: #ece3d2;
+  --ink: #2a2018;
+  --ink-2: #6b5a48;
+  --line: #dccdb4;
+  --pri: #2f5b46;
+  --on-pri: #fff;
+  --accent: #5c3a1e;
+  --chk-bg: #5c3a1e;
+  --chk-fg: #fffaf0;
+  --chk-bd: #5c3a1e;
+  --chk-sh: inset 0 1px 0 rgba(255, 255, 255, .22), 0 2px 3px rgba(52, 30, 10, .22);
+  --seg2-bg: #5c3a1e;
+  --seg2-fg: #fffaf0;
+  --turn: #2f5b46;
+  --focus: #c58a2c;
+  --sel: #c58a2c;
+  --danger: #9e2a1c;
+  --overlay: rgba(42, 32, 24, .55);
+  --sh-panel: 0 6px 24px rgba(52, 30, 10, .28);
+  --raise: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 3px rgba(52, 30, 10, .18);
+  --raise-fill: inset 0 1px 0 rgba(255, 255, 255, .22), 0 2px 3px rgba(52, 30, 10, .24);
+  --red: #b3261e;
+  --black: #1f1b17;
+  --cap: #c0392b;
+  --cap-u: rgba(255, 246, 230, .7);
+  --move: #2f5b46;
+  --last: #2f5b46;
+  --screen: rgba(42, 32, 24, .7);
+  --face-0: #fffdf7;
+  --face-1: #fbf3e2;
+  --face-2: #ebdcbd;
+  --face-3: #d6c09a;
+  --face-edge: #bfa275;
+  --face-side: #b0915f;
+  --back-0: #d9a467;
+  --back-1: #c48b51;
+  --back-2: #8f5a2c;
+  --back-3: #6e431f;
+  --back-edge: #5a3517;
+  --back-ring: rgba(255, 232, 190, .55);
+  --shadow: rgba(52, 30, 10, .38);
+  --sh-sm: rgba(52, 30, 10, .22);
+  --wood-1: #e2b87c;
+  --wood-2: #c89356;
+  --frame-1: #8b5a2e;
+  --frame-2: #64401f;
+  --cell-lo: rgba(90, 52, 20, .24);
+  --cell-hi: rgba(255, 240, 210, .42);
+}
+:root[data-scheme="dark"] { color-scheme: dark; }
+/* ---- A 木與紙・深色 ---- */
+:root[data-theme="wood"][data-scheme="dark"] {
+  --bg: #1c1814;
+  --surface: #25201a;
+  --surface-opp: #22211e;
+  --tint: #2f2821;
+  --ink: #efe6d8;
+  --ink-2: #bfae97;
+  --line: #40372c;
+  --pri: #8cc7a6;
+  --on-pri: #13201a;
+  --accent: #d6a878;
+  --chk-bg: #d6a878;
+  --chk-fg: #1c1814;
+  --chk-bd: #d6a878;
+  --chk-sh: inset 0 1px 0 rgba(255, 255, 255, .18), 0 1px 1.5px rgba(0, 0, 0, .5);
+  --seg2-bg: #d6a878;
+  --seg2-fg: #1c1814;
+  --turn: #8cc7a6;
+  --focus: #f0b860;
+  --sel: #f0b860;
+  --danger: #ff9a8a;
+  --overlay: rgba(0, 0, 0, .6);
+  --sh-panel: 0 6px 24px rgba(0, 0, 0, .6);
+  --raise: inset 0 1px 0 rgba(255, 255, 255, .06), 0 1px 1.5px rgba(0, 0, 0, .5);
+  --raise-fill: inset 0 1px 0 rgba(255, 255, 255, .18), 0 1px 1.5px rgba(0, 0, 0, .5);
+  --cap: #ff7a66;
+  --cap-u: rgba(30, 16, 6, .55);
+  --move: #8cc7a6;
+  --last: #8cc7a6;
+  --screen: rgba(255, 240, 215, .75);
+  --face-0: #f6eedc;
+  --face-1: #efe3c8;
+  --face-2: #d9c6a0;
+  --face-3: #bfa77c;
+  --face-edge: #9b8058;
+  --face-side: #7f6744;
+  --back-0: #b57f48;
+  --back-1: #9c6a38;
+  --back-2: #6e4520;
+  --back-3: #4e2f14;
+  --back-edge: #2e1a0a;
+  --back-ring: rgba(255, 225, 180, .34);
+  --shadow: rgba(0, 0, 0, .6);
+  --sh-sm: rgba(0, 0, 0, .45);
+  --wood-1: #a77b48;
+  --wood-2: #86602f;
+  --frame-1: #5e3c1c;
+  --frame-2: #3d2610;
+  --cell-lo: rgba(0, 0, 0, .34);
+  --cell-hi: rgba(255, 225, 180, .13);
+}
+/* ---- B 漆器與墨：兩種深淺共用的（盤子、棋子、金線） ---- */
+:root[data-theme="lacquer"] {
+  --font-title: "Noto Serif TC", "Songti TC", "Noto Serif CJK TC", serif;
+  --title-wt: 600;
+  --title-ls: .32em;
+  --hl: #c9a25a;
+  --grid: rgba(201, 162, 90, .42);
+  --lac-1: #3b1512;
+  --lac-2: #230b09;
+  --lac-3: #140605;
+  --frame: #0b0403;
+  --back-0: #4a3d37;
+  --back-1: #241c19;
+  --back-2: #0f0b0a;
+  --back-3: #050303;
+  --back-edge: #000;
+  --back-ring: #c9a25a;
+  --face-0: #fffaf0;
+  --face-1: #f4e8cf;
+  --face-2: #dcc8a1;
+  --face-3: #c1a978;
+  --face-edge: #c9a25a;
+  --face-side: #6f5a37;
+  --red: #c0321e;
+  --black: #15110f;
+  --cap: #ee5a43;
+  --cap-u: rgba(10, 4, 3, .7);
+  --move: #d9b770;
+  --last: #d9b770;
+  --sel: #e3c27a;
+  --screen: rgba(217, 183, 112, .85);
+}
+/* ---- B 漆器與墨・深色（本色） ---- */
+:root[data-theme="lacquer"][data-scheme="dark"] {
+  --bg: #0e0b0a;
+  --surface: #191311;
+  --surface-opp: #161514;
+  --tint: #251c18;
+  --ink: #efe4cf;
+  --ink-2: #a8977c;
+  --line: #3a2c24;
+  --pri: #a8301f;
+  --on-pri: #fbefd9;
+  --accent: #d9b770;
+  --chk-bg: #191311;
+  --chk-fg: #d9b770;
+  --chk-bd: #c9a25a;
+  --chk-sh: inset 0 0 0 1px #c9a25a;
+  --seg2-bg: #c9a25a;
+  --seg2-fg: #140d0a;
+  --turn: #c9a25a;
+  --focus: #e3c27a;
+  --danger: #ff9a8a;
+  --overlay: rgba(0, 0, 0, .65);
+  --sh-panel: 0 6px 24px rgba(0, 0, 0, .7);
+  --raise: inset 0 1px 0 rgba(255, 255, 255, .05), 0 1px 1.5px rgba(0, 0, 0, .6);
+  --raise-fill: inset 0 1px 0 rgba(255, 255, 255, .18), 0 1px 1.5px rgba(0, 0, 0, .6);
+  --shadow: rgba(0, 0, 0, .62);
+  --sh-sm: rgba(0, 0, 0, .5);
+}
+/* ---- B 漆器與墨・淺色（只換盤子外面） ---- */
+:root[data-theme="lacquer"][data-scheme="light"] {
+  --bg: #ebe5da;
+  --surface: #f7f3ec;
+  --surface-opp: #efeeeb;
+  --tint: #e3dbcc;
+  --ink: #1d1714;
+  --ink-2: #665846;
+  --line: #d3c7b3;
+  --pri: #a3291b;
+  --on-pri: #fbefd9;
+  --accent: #7a5a20;
+  --chk-bg: #f7f3ec;
+  --chk-fg: #7a5a20;
+  --chk-bd: #9a7432;
+  --chk-sh: inset 0 0 0 1px #9a7432;
+  --seg2-bg: #1d1714;
+  --seg2-fg: #ecd9ab;
+  --turn: #7a5a20; /* 上下兩條上的「輪到」與框：對兩條的底色 ≥ 4.5 */
+  --focus: #9a7432;
+  --danger: #9e2a1c;
+  --overlay: rgba(29, 23, 20, .55);
+  --sh-panel: 0 6px 24px rgba(40, 20, 10, .3);
+  --raise: inset 0 1px 0 rgba(255, 255, 255, .8), 0 2px 3px rgba(40, 20, 10, .16);
+  --raise-fill: inset 0 1px 0 rgba(255, 255, 255, .22), 0 2px 3px rgba(40, 20, 10, .24);
+  --shadow: rgba(40, 20, 10, .42);
+  --sh-sm: rgba(40, 20, 10, .26);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+[hidden] { display: none !important; }
+main {
+  max-width: 680px; margin: 0 auto;
+  /* 上緣＝安全區＋28px（頂端遮罩是安全區＋24px）；沒有安全區時 12px。寫法同五子棋 */
+  padding: max(12px, calc(env(safe-area-inset-top) + min(28px, env(safe-area-inset-top) * 1000))) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+body[data-page="game"] main { max-width: 1100px; }
+
+/* ---------- 共用 ---------- */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 16px; }
+h1 { font-family: var(--font-title); font-size: 2rem; font-weight: var(--title-wt); margin: 0; letter-spacing: var(--title-ls); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 12px 14px; margin-bottom: 12px; }
+.card h2 { font-size: var(--fs-body); margin: 0 0 8px; }
+.note { font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; margin: 8px 0 0; }
+.seg { display: flex; gap: 8px; }
+.seg label { flex: 1; min-width: 0; position: relative; display: flex; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label > span {
+  flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center;
+  min-height: var(--btn-h); padding: 8px 4px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); box-shadow: var(--raise); font-size: var(--fs-body); cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.seg label > span b { font-weight: 600; }
+.seg small { display: block; font-size: var(--fs-small); line-height: 1.35; margin-top: 4px; color: var(--ink-2); }
+.seg input:checked + span { background: var(--chk-bg); color: var(--chk-fg); border-color: var(--chk-bd); box-shadow: var(--chk-sh); }
+.seg input:checked + span small { color: inherit; }
+.seg input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+button {
+  font: inherit; font-size: var(--fs-body); border: none; border-radius: var(--r-md); min-height: var(--btn-h); padding: 8px 16px;
+  background: var(--pri); color: var(--on-pri); box-shadow: var(--raise-fill); cursor: pointer; touch-action: manipulation;
+}
+button:not(:disabled):active { transform: translateY(1px); }
+button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+button.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--raise); }
+button.good { background: var(--pri); color: var(--on-pri); }
+button.link { background: none; color: var(--accent); border: 1px solid var(--line); box-shadow: none; min-height: 36px; padding: 4px 14px; border-radius: 999px; font-size: var(--fs-small); font-weight: 700; }
+button.big { display: block; width: 100%; min-height: 56px; margin: 4px 0 12px; font-size: 1.25rem; font-weight: 700; background: var(--pri); color: var(--on-pri); letter-spacing: .3em; text-indent: .3em; }
+
+/* ---------- 開始頁的規則 ---------- */
+.rules summary { font-weight: 700; cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.rules ul { margin: 8px 0 0; padding-left: 1.2em; line-height: 1.6; font-size: .9375rem; }
+.rules li + li { margin-top: 4px; }
+.rules-sub { font-weight: 700; margin: 12px 0 0; font-size: .9375rem; }
+
+/* ---------- 對局頁 ---------- */
+/* 作者 2026-10-24：手機上整個對局頁一個畫面看完、不捲動。由上往下：上面那條 → 棋盤與兩欄 → 狀態列 → 下面那條，每一列都是固定高度，
+   app.js 的 layoutBoard 用「剩下的高度」算格子。html.tight＝緊湊版（格子會小於 44 時才用）：間距、上下兩條、狀態列、棋盤框都變薄 */
+:root { --gap: 8px; --hgap: 6px; --side-h: 52px; --status-h: 48px; --bpad: 7px; --badge: 30px; }
+/* 緊湊版的上下兩條也要放得下 44 高的認輸鈕 */
+html.tight { --gap: 4px; --hgap: 4px; --side-h: 48px; --status-h: 40px; --bpad: 5px; --badge: 26px; }
+body[data-page="game"] main { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+html.tight body[data-page="game"] main {
+  padding-top: max(6px, calc(env(safe-area-inset-top) + min(28px, env(safe-area-inset-top) * 1000)));
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+}
+#game { display: flex; flex-direction: column; align-items: center; gap: var(--gap); }
+#game > * { width: 100%; flex: none; }
+/* 上下兩條、狀態列跟棋盤那一列一樣寬（--roww 由 app.js 給），太窄時至少 360 */
+#game > .side, #game > .status-row { width: min(100%, max(var(--roww, 100%), 360px)); }
+
+/* 上下兩條：顏色標記、名字（下面一行寫紅方／黑方）、輪到的那條加「輪到」小標與框；對方那條紙色稍灰 */
+.side {
+  /* overflow hidden：量寬度時（還沒收緊）內容就算太寬也不會把整頁撐寬——手機會因此把整頁縮小、innerHeight 變大，格子就算錯 */
+  position: relative; display: flex; align-items: center; gap: 8px; height: var(--side-h); padding: 0 6px 0 10px; border-radius: 14px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.side.opp { background-color: var(--surface-opp); }
+.side.active { border-color: var(--turn); box-shadow: inset 3px 0 0 var(--turn); }
+:root[data-theme="wood"] .side.active { background-image: linear-gradient(90deg, color-mix(in srgb, var(--turn) 8%, transparent), transparent 60%); }
+.side .who { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; flex: 0 1 auto; }
+.side .who b { font-size: 1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side .who small { font-size: .75rem; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side .turn { flex: none; font: 700 11.5px/1 var(--font-body); color: var(--turn); border: 1px solid currentColor; border-radius: 999px; padding: 4px 7px; white-space: nowrap; }
+.side .took { margin-left: auto; flex: none; font-size: var(--fs-small); color: var(--ink-2); background: var(--tint); border-radius: 999px; padding: 4px 9px; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.side .took b { color: var(--ink); font-weight: 700; }
+.side-btns { flex: none; display: flex; align-items: center; gap: 6px; }
+.side button.resign { flex: none; min-height: 44px; height: 44px; padding: 0 12px; color: var(--ink); white-space: nowrap; } /* 認輸：一定 ≥ 44 高、字不換行 */
+/* 認輸要長按：不選字、不跳出 iOS 的放大鏡／選單；按著的時候從左到右填滿（--hold 由 app.js 給，照動畫速度、最短 0.6 秒） */
+button.resign { position: relative; overflow: hidden; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+button.resign::before { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--danger) 26%, transparent); transform-origin: left; transform: scaleX(0); pointer-events: none; }
+button.resign.holding::before { transform: scaleX(1); transition: transform var(--hold, 1000ms) linear; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.side .icon-btn { width: calc(var(--side-h) - 14px); height: calc(var(--side-h) - 14px); }
+html.tight .side { gap: 6px; padding-left: 8px; }
+html.tight .side .who b { font-size: .875rem; }
+html.tight .side .who small { font-size: .6875rem; }
+html.tight .side .took { padding: 3px 7px; }
+html.tight .side .side-btns { gap: 4px; }
+html.tight .side .icon-btn { width: calc(var(--side-h) - 10px); height: calc(var(--side-h) - 10px); }
+html.tight .side button.resign { padding: 0 10px; }
+/* 擠的程度 3：緊湊（間距、顏色標記、設定與眼睛變小；認輸照樣 44 高） */
+.side[data-lv="3"], .side[data-lv="4"] { gap: 4px; padding-left: 6px; padding-right: 4px; --badge: 24px; }
+.side[data-lv="3"] .side-btns, .side[data-lv="4"] .side-btns { gap: 3px; }
+.side[data-lv="3"] .icon-btn, .side[data-lv="4"] .icon-btn { width: 32px; height: 32px; }
+.side[data-lv="3"] .icon-btn svg, .side[data-lv="4"] .icon-btn svg { width: 18px; height: 18px; }
+.side[data-lv="3"] .took { padding: 3px 6px; }
+.side[data-lv="3"] button.resign, .side[data-lv="4"] button.resign { padding: 0 8px; }
+/* 擠的程度 4：「吃了 n」收起來，按鈕靠右 */
+.side[data-lv="4"] .side-btns { margin-left: auto; }
+
+/* 小棋子（欄位、上下兩條的顏色標記）：--d 是直徑 */
+.mini, .badge {
+  --d: var(--md, 24px); position: relative; flex: none; width: var(--d); height: var(--d); border-radius: 50%; display: inline-grid; place-items: center;
+  font-family: var(--font-piece); font-weight: var(--piece-wt); font-size: calc(var(--d) * .54); line-height: 1;
+  background: radial-gradient(circle at 36% 28%, var(--face-0), var(--face-1) 38%, var(--face-2) 85%);
+  box-shadow: inset 0 0 0 1px var(--face-edge), 0 1.5px 0 var(--face-side), 0 2px 3px var(--sh-sm);
+}
+.badge { --d: var(--badge); }
+.mini.r, .badge.r { color: var(--red); }
+.mini.b, .badge.b { color: var(--black); }
+.mini.u { color: #6b5a48; } /* 顏色還沒定的灰字：畫在象牙面上，深色模式也用同一個深墨（對比 ≥ 4.5） */
+.badge.u { color: var(--ink-2); background: var(--tint); box-shadow: inset 0 0 0 1px var(--line); font-family: var(--font-body); font-weight: 700; }
+
+/* 狀態列（作者 2026-10-24：移到棋盤下面、下面那條上面）：輪到誰＋連吃中的「停在這裡」 */
+.status-row { display: flex; align-items: center; justify-content: center; gap: 10px; height: var(--status-h); overflow: hidden; }
+#status { margin: 0; font-weight: 700; font-size: .9375rem; text-align: center; line-height: 1.2; max-height: 2.4em; overflow: hidden; }
+button.stop { flex: none; min-height: 0; height: calc(var(--status-h) - 6px); padding: 0 18px; border-radius: 12px; background: var(--pri); color: var(--on-pri); font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+
+/* 棋盤：JS 依可用空間算 --cell，直式 4×8、寬螢幕 8×4。.board-wrap＝外框（內距 --bpad），#board＝盤面 */
+.board-row { display: flex; justify-content: center; align-items: flex-start; gap: var(--hgap); }
+.board-wrap { flex: none; width: auto; padding: var(--bpad); border-radius: 12px; }
+.board {
+  position: relative; display: grid; grid-template-columns: repeat(var(--cols, 4), var(--cell)); grid-template-rows: repeat(var(--rows, 8), var(--cell));
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+.cell {
+  position: relative; width: var(--cell); height: var(--cell); min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit;
+  perspective: 600px; -webkit-tap-highlight-color: transparent;
+}
+.cell:not(:disabled):active { transform: none; }
+.cell:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; z-index: 4; }
+.cell.sel { z-index: 3; }
+.pc { position: absolute; inset: 9%; z-index: 1; transition: transform calc(.18s * var(--anim)) ease; }
+.cell.empty .pc { display: none; }
+.disc { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform calc(.25s * var(--anim)) ease-in-out; }
+.disc.up { transform: rotateY(180deg); }
+.disc .back, .disc .face { position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.disc .back::before, .disc .back::after, .disc .face::before { content: ""; position: absolute; border-radius: 50%; pointer-events: none; }
+.disc .face { transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+.disc .face::before { inset: 8%; border: 1.25px solid currentColor; opacity: .45; }
+.disc .ch { position: relative; font-family: var(--font-piece); font-weight: var(--piece-wt); font-size: calc(var(--cell) * .46); line-height: 1; }
+.cell.r .face { color: var(--red); }
+.cell.b .face { color: var(--black); }
+/* 選中：整個子浮起來（往上、放大、影子變大變遠）＋一圈光（作者：浮起來要看得清楚） */
+.cell.sel .pc { transform: translateY(calc(var(--cell) * -.12)) scale(1.1); }
+
+/* 記號（每一格一個 SVG，用格子的 class 決定顯示哪個）：吃子＝紅實線圈、攻擊暗子＝紅虛線圈、走到空格＝小點、上一步＝四個角 */
+.mk { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 2; }
+.mk > * { display: none; }
+.mk .u { fill: none; stroke: var(--cap-u); stroke-width: 4.5; }
+.mk .cap { fill: none; stroke: var(--cap); stroke-width: 2.5; }
+.mk .atk { fill: none; stroke: var(--cap); stroke-width: 2.5; stroke-dasharray: 4.4 3.45; stroke-linecap: round; }
+.mk .mv { fill: var(--move); }
+.mk .lst { fill: none; stroke: var(--last); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.cell.t-cap .mk .u, .cell.t-cap .mk .cap, .cell.t-atk .mk .u, .cell.t-atk .mk .atk, .cell.t-move .mk .mv, .cell.last .mk .lst, .cell.path .mk .lst { display: inline; }
+/* 炮台：點點圈 */
+.cell.screen .pc::before { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px dotted var(--screen); z-index: 1; pointer-events: none; }
+/* 終局攤開：原本蓋著的子淡一點、虛線圈 */
+.cell.peek .face { opacity: .62; }
+.cell.peek .pc::before { content: ""; position: absolute; inset: -2px; border-radius: 50%; border: 2px dashed var(--screen); z-index: 1; pointer-events: none; }
+/* 不合法的點：輕輕搖一下 */
+.cell.shake .pc { animation: shake calc(.3s * var(--anim)); }
+@keyframes shake { 0%, 100% { translate: 0; } 25% { translate: -4px 0; } 75% { translate: 4px 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .disc, .pc { transition: none; }
+  .cell.shake .pc { animation: none; }
+}
+
+/* ===== A 木與紙：木框、木紋（SVG 雜訊＋漸層，沒有圖檔）、每格一個淺淺的凹槽、木背暗子、象牙面明子 ===== */
+:root[data-theme="wood"] .board-wrap { background: linear-gradient(180deg, var(--frame-1), var(--frame-2));
+  box-shadow: inset 0 1px 0 rgba(255, 228, 185, .35), inset 0 -1px 0 rgba(0, 0, 0, .28), 0 1px 1px var(--sh-sm), 0 12px 24px -10px var(--shadow); }
+:root[data-theme="wood"] .board { border-radius: 5px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='460'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55 0.012' numOctaves='3' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.2 0 0 0 0 0.08 1.15 0 0 0 -0.47'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(91deg, rgba(110, 62, 24, .07) 0 1px, transparent 1px 6px),
+    radial-gradient(120% 70% at 30% 18%, rgba(255, 240, 205, .32), transparent 62%),
+    linear-gradient(180deg, var(--wood-1), var(--wood-2));
+  box-shadow: inset 0 0 0 1px rgba(60, 30, 10, .35), inset 0 2px 4px rgba(60, 30, 10, .28); }
+/* 橫放（8×4）：紋路順著長邊轉 90° */
+:root[data-theme="wood"] .board.land {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='460' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.55' numOctaves='3' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.2 0 0 0 0 0.08 1.15 0 0 0 -0.47'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(1deg, rgba(110, 62, 24, .07) 0 1px, transparent 1px 6px),
+    radial-gradient(70% 120% at 18% 30%, rgba(255, 240, 205, .32), transparent 62%),
+    linear-gradient(90deg, var(--wood-1), var(--wood-2)); }
+:root[data-theme="wood"] .cell::before { content: ""; position: absolute; inset: 2px; border-radius: 7px; pointer-events: none;
+  box-shadow: inset 1px 1.5px 2px var(--cell-lo), inset -1px -1px 1px var(--cell-hi); }
+:root[data-theme="wood"] .disc .back {
+  background: repeating-radial-gradient(circle at 50% 50%, rgba(60, 30, 8, .06) 0 1px, transparent 1px 3px),
+    radial-gradient(circle at 35% 28%, var(--back-0) 0, var(--back-1) 32%, var(--back-2) 78%, var(--back-3) 100%);
+  box-shadow: inset 0 1px 1px rgba(255, 236, 205, .5), inset 0 -2px 3px rgba(50, 25, 5, .35), 0 2px 0 var(--back-edge), 0 3px 6px var(--shadow); }
+:root[data-theme="wood"] .disc .back::before { inset: 16%; border: 1px solid var(--back-ring); box-shadow: 0 0 0 1px rgba(60, 30, 8, .22), inset 0 0 0 1px rgba(60, 30, 8, .22); }
+:root[data-theme="wood"] .disc .back::after { inset: 32%; border: 1px solid rgba(60, 30, 8, .16); }
+:root[data-theme="wood"] .disc .face {
+  background: radial-gradient(circle at 36% 28%, var(--face-0), var(--face-1) 35%, var(--face-2) 80%, var(--face-3));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -2px 3px rgba(120, 90, 50, .25), inset 0 0 0 1px var(--face-edge), 0 2px 0 var(--face-side), 0 3px 6px var(--shadow); }
+:root[data-theme="wood"] .disc .ch { text-shadow: 0 1px 0 rgba(255, 255, 255, .75); }
+:root[data-theme="wood"] .cell.sel .face {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -2px 3px rgba(120, 90, 50, .25), inset 0 0 0 1px var(--face-edge), 0 2px 0 var(--face-side),
+    0 0 0 2.5px var(--sel), 0 16px 16px -4px var(--shadow), 0 8px 20px var(--sh-sm); }
+
+/* ===== B 漆器與墨：朱漆盤、金格線、黑漆暗子（金圈）、骨白明子（金邊） ===== */
+:root[data-theme="lacquer"] .board-wrap { border-radius: 10px; background: linear-gradient(180deg, #1c0907, var(--frame));
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 90, .55), inset 0 0 0 3px var(--frame), inset 0 0 0 4px rgba(201, 162, 90, .28), 0 14px 28px -12px var(--shadow), 0 1px 2px var(--sh-sm); }
+:root[data-theme="lacquer"] .board { border-radius: 2px;
+  background: linear-gradient(to right, var(--grid) 1px, transparent 1px) 0 0 / var(--cell) var(--cell),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px) 0 0 / var(--cell) var(--cell),
+    linear-gradient(168deg, rgba(255, 255, 255, .07), transparent 32%),
+    radial-gradient(110% 60% at 30% 10%, rgba(150, 44, 30, .38), transparent 62%),
+    linear-gradient(165deg, var(--lac-1), var(--lac-2) 55%, var(--lac-3));
+  box-shadow: inset 0 0 0 1px var(--grid); }
+:root[data-theme="lacquer"] .disc .back {
+  background: radial-gradient(ellipse 62% 34% at 42% 20%, rgba(255, 255, 255, .16), transparent 70%),
+    radial-gradient(circle at 35% 26%, var(--back-0) 0, var(--back-1) 32%, var(--back-2) 75%, var(--back-3));
+  box-shadow: inset 0 1px 0 rgba(255, 235, 210, .22), inset 0 -2px 3px rgba(0, 0, 0, .6), 0 2px 0 #000, 0 4px 7px var(--shadow); }
+:root[data-theme="lacquer"] .disc .back::before { inset: 14%; border: 1px solid var(--hl); opacity: .72; }
+:root[data-theme="lacquer"] .disc .back::after { inset: 23%; border: 1px solid var(--hl); opacity: .26; }
+:root[data-theme="lacquer"] .disc .face {
+  background: radial-gradient(circle at 36% 28%, var(--face-0), var(--face-1) 35%, var(--face-2) 82%, var(--face-3));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 -2px 3px rgba(90, 60, 20, .3), inset 0 0 0 1px var(--hl), 0 2px 0 var(--face-side), 0 4px 7px var(--shadow); }
+:root[data-theme="lacquer"] .cell.sel .face {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 -2px 3px rgba(90, 60, 20, .3), inset 0 0 0 1px var(--hl), 0 2px 0 var(--face-side),
+    0 0 0 1.5px #120605, 0 0 0 3.5px var(--sel), 0 18px 18px -4px rgba(0, 0, 0, .75), 0 0 22px rgba(227, 194, 122, .3); }
+:root[data-theme="lacquer"] .mini, :root[data-theme="lacquer"] .badge:not(.u) { box-shadow: inset 0 0 0 1px var(--hl), 0 1.5px 0 var(--face-side), 0 2px 3px var(--sh-sm); }
+
+/* 棋盤左右兩欄（作者 2026-10-24）：左＝對方、右＝我，一次只顯示一種——data-mode="cap" 被吃（同一種疊成一小疊、兩個以上寫 ×N）、
+   "hid" 沒翻（棋子＋數字，0 的那列變淡）。點欄頭兩欄一起換。欄寬 --colw、小棋子直徑 --md、疊的位移 --stk 都由 app.js 給 */
+.intel {
+  flex: none; width: var(--colw, 48px); height: calc(var(--cell) * var(--rows, 8) + var(--bpad) * 2);
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto repeat(7, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.intel > * { min-width: 0; }
+.intel.opp { background-color: var(--surface-opp); }
+button.intel-head {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 0; margin: 0; padding: 6px 1px; width: 100%;
+  border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: inherit; box-shadow: none; font: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button.intel-head:focus-visible { outline-offset: -3px; }
+.intel-head .who { display: flex; align-items: center; gap: 3px; font-size: .71875rem; font-weight: 700; line-height: 1; white-space: nowrap; max-width: 100%; overflow: hidden; }
+.intel-head .badge { --d: 16px; box-shadow: inset 0 0 0 1px var(--face-edge); }
+.intel-head .badge.u { box-shadow: inset 0 0 0 1px var(--line); }
+.seg2 { display: flex; gap: 1px; padding: 1.5px; border-radius: 7px; background: var(--tint); max-width: 100%; }
+.seg2 span { font-size: .65625rem; line-height: 1; padding: 4px 2px; border-radius: 5.5px; color: var(--ink-2); white-space: nowrap; text-align: center; }
+.intel[data-mode="cap"] .seg2 .s-cap, .intel[data-mode="hid"] .seg2 .s-hid { background: var(--seg2-bg); color: var(--seg2-fg); font-weight: 700; }
+/* 欄太窄放不下兩個字並排時，上下疊 */
+.intel.narrow .seg2 { flex-direction: column; }
+.intel.narrow-who .intel-head .who { flex-direction: column; gap: 3px; }
+/* 列太矮（橫放的手機）：七種子排成兩小欄，左 帥仕相俥、右 傌炮兵 */
+.intel.split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto repeat(4, minmax(0, 1fr)); }
+.intel.split .intel-head { grid-column: 1 / -1; }
+.intel.split .intel-row:nth-of-type(1) { grid-area: 2 / 1; }
+.intel.split .intel-row:nth-of-type(2) { grid-area: 3 / 1; }
+.intel.split .intel-row:nth-of-type(3) { grid-area: 4 / 1; }
+.intel.split .intel-row:nth-of-type(4) { grid-area: 5 / 1; }
+.intel.split .intel-row:nth-of-type(5) { grid-area: 2 / 2; }
+.intel.split .intel-row:nth-of-type(6) { grid-area: 3 / 2; }
+.intel.split .intel-row:nth-of-type(7) { grid-area: 4 / 2; }
+.intel.split .n-hid { font-size: .8125rem; }
+.side .who small .turn { display: inline-block; vertical-align: 1px; font-size: 10px; padding: 2px 5px; }
+.intel-row { display: flex; align-items: center; justify-content: center; gap: 3px; min-height: 0; }
+:root[data-theme="lacquer"] .intel-row + .intel-row { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--hl) 14%, transparent); }
+.n-cap { position: relative; flex: none; width: var(--md, 24px); height: calc(var(--md, 24px) + (var(--n, 1) - 1) * var(--stk, 4px)); }
+.n-cap .mini { position: absolute; left: 0; bottom: calc(var(--k, 0) * var(--stk, 4px)); }
+.xn { font-size: .6875rem; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.slot { width: calc(var(--md, 24px) - 4px); height: calc(var(--md, 24px) - 4px); border-radius: 50%; border: 1px dashed var(--line); }
+.n-hid { font-size: min(1rem, calc(var(--colw, 48px) * .33)); font-weight: 700; font-variant-numeric: tabular-nums; min-width: .7em; }
+.intel[data-mode="hid"] .intel-row.zero > * { opacity: .72; } /* 0 的那列變淡，但字還讀得出來（b01 量：字對棋子面的對比 ≥ 3） */
+.intel[data-mode="hid"] .intel-row.zero .n-hid { opacity: .6; }
+/* 眼睛：隱藏情報的開關；設定：齒輪 */
+button.icon-btn { flex: none; min-height: 0; width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--raise); border-radius: 999px; }
+button.icon-btn .slash { display: none; }
+button.icon-btn[aria-pressed="true"] .slash { display: inline; }
+
+/* ---------- 開始頁標題旁的三個子 ---------- */
+.trio { display: flex; align-items: center; margin-right: auto; margin-left: 4px; }
+.trio .mini { --d: 28px; }
+.trio > * + * { margin-left: -6px; }
+.trio .back-mini { background: radial-gradient(circle at 35% 28%, var(--back-0) 0, var(--back-1) 32%, var(--back-2) 78%, var(--back-3) 100%);
+  box-shadow: inset 0 1px 1px rgba(255, 236, 205, .4), 0 1.5px 0 var(--back-edge), 0 2px 3px var(--sh-sm); }
+.trio .back-mini::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 1px solid var(--back-ring); }
+
+/* ---------- 設定頁 ---------- */
+.topbar-btns { display: flex; align-items: center; gap: 8px; }
+.set-title { flex: 1; text-align: center; font-size: 1.5rem; }
+.topbar-spacer { width: 72px; flex: none; }
+button.link.back { min-width: 72px; min-height: 44px; }
+.seg.wrap { flex-wrap: wrap; }
+.seg.wrap label { flex: 1 1 40%; }
+.seg.levels label { flex: 1 1 30%; }
+/* 電腦在想：那條底下一條細細的進度（--p＝已經算的節點／這一級的預算），小標「思考中…」輕輕閃 */
+.side .think-bar { position: absolute; left: 12px; right: 12px; bottom: 3px; height: 2px; border-radius: 1px; background: color-mix(in srgb, var(--turn) 22%, transparent); overflow: hidden; pointer-events: none; }
+.side .think-bar::after { content: ""; position: absolute; inset: 0; background: var(--turn); transform-origin: left; transform: scaleX(var(--p, 0)); transition: transform calc(.2s * var(--anim)) linear; }
+.side.thinking .turn { animation: think-pulse calc(1.4s * var(--anim)) ease-in-out infinite; }
+@keyframes think-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .side.thinking .turn { animation: none; } }
+.seg .sample { display: block; font-size: 1.375rem; line-height: 1.2; margin-top: 2px; }
+/* ---------- 開始頁的帳號與紀錄（第二步 b-2） ---------- */
+.start-acts { display: flex; align-items: center; gap: 8px; margin: -6px 0 12px; }
+button.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 14px 4px 10px; border-radius: 999px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); box-shadow: var(--raise); font-weight: 700; max-width: 60%; }
+button.chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-acts button.link { min-height: 44px; margin-left: auto; }
+
+/* ---------- 紀錄頁 ---------- */
+.rec-who { margin: 0 0 8px; font-weight: 700; color: var(--ink-2); overflow-wrap: anywhere; }
+#records .seg { margin-bottom: 10px; }
+.rec-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: .875rem; line-height: 1.3; }
+.rec-table th, .rec-table td { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.rec-table th:first-child { text-align: left; white-space: normal; }
+.rec-table tr:first-child th { font-size: var(--fs-small); color: var(--ink-2); font-weight: 700; }
+.rec-table tr:last-child th, .rec-table tr:last-child td { border-bottom: 0; }
+.rec-table tr.total th, .rec-table tr.total td { font-weight: 700; background: var(--tint); }
+.rec-more { margin: 8px 0 0; padding: 0 12px; }
+#records .topbar { margin-bottom: 10px; }
+#records .note { margin-top: 4px; }
+.rec-more summary { font-weight: 700; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.rec-more[open] { padding-bottom: 12px; }
+.rec-recent { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.rec-recent li { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: var(--fs-small); line-height: 1.4; }
+.rec-recent li:last-child { border-bottom: 0; }
+.rec-recent .rec-when { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rec-recent .rec-line { overflow-wrap: anywhere; }
+.rec-recent li.res-win .rec-line { font-weight: 700; }
+
+/* ---------- 帳號頁 ---------- */
+.prof-list { list-style: none; margin: 0 0 12px; padding: 0; }
+.prof-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; flex-wrap: wrap; }
+.prof-row.current { border-color: var(--turn); box-shadow: inset 3px 0 0 var(--turn); }
+.prof-info { flex: 1 1 8em; min-width: 0; display: flex; flex-direction: column; }
+.prof-name { overflow-wrap: anywhere; }
+.prof-info small { color: var(--ink-2); font-size: var(--fs-small); }
+.prof-acts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.prof-acts button { min-height: 44px; padding: 4px 12px; font-size: var(--fs-small); }
+.prof-cur { font-size: var(--fs-small); font-weight: 700; color: var(--turn); border: 1px solid currentColor; border-radius: 999px; padding: 4px 10px; }
+button.danger { color: var(--danger); }
+button.danger:disabled { opacity: .45; }
+.prof-form { display: flex; flex-direction: column; gap: 8px; }
+.prof-form label { font-weight: 700; overflow-wrap: anywhere; }
+.prof-form input { font: inherit; font-size: 1rem; min-height: 44px; padding: 6px 10px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+.prof-form-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.prof-add { width: 100%; }
+
+/* ---------- 確認框 ---------- */
+.dialog-overlay { position: fixed; inset: 0; z-index: 40; background: var(--overlay); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.dialog-card { background: var(--surface); border-radius: 16px; padding: 18px 16px 14px; width: 100%; max-width: 360px; box-shadow: var(--sh-panel); }
+.dialog-card p { margin: 0 0 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.dialog-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.dialog-btns button { flex: 1 1 auto; }
+.end-record { margin-top: -4px !important; }
+
+/* 授權卡 */
+.lic-list { margin: 8px 0 0; padding-left: 1.1em; font-size: var(--fs-small); line-height: 1.5; color: var(--ink-2); }
+.lic-list li + li { margin-top: 10px; }
+.lic-list b { color: var(--ink); }
+.lic-list .url { overflow-wrap: anywhere; }
+.lic-list a { color: var(--accent); font-weight: 700; }
+/* 設定頁開著時，對局的結果卡與提示先收起來（回到對局頁又會出現） */
+body[data-page="settings"] .end-overlay, body[data-page="settings"] .toast { display: none !important; }
+
+/* 結束 */
+.end-overlay { position: fixed; inset: 0; z-index: 20; background: var(--overlay); display: flex; align-items: center; justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+.end-card { background: var(--surface); border-radius: 16px; padding: 20px 16px 16px; width: 100%; max-width: 360px; box-shadow: var(--sh-panel); text-align: center; }
+.end-card h2 { font-family: var(--font-title); font-weight: var(--title-wt); font-size: 1.75rem; margin: 0 0 8px; }
+.end-card p { margin: 0 0 12px; line-height: 1.5; }
+.end-btns { display: flex; flex-direction: column; gap: 8px; }
+/* 攤開以後：結果縮成底下一條，不擋棋盤 */
+.end-overlay.revealed { background: transparent; pointer-events: none; align-items: flex-end; }
+.end-overlay.revealed .end-card { pointer-events: auto; max-width: 520px; padding: 10px 12px; }
+.end-overlay.revealed .end-card h2 { font-size: 1.125rem; margin: 0 8px 0 0; display: inline; }
+.end-overlay.revealed .end-card #endReason { display: inline; }
+.end-overlay.revealed .end-card p { margin: 0 0 6px; font-size: var(--fs-small); }
+.end-overlay.revealed .end-card #endRevealNote { margin-top: 4px; line-height: 1.35; }
+.end-overlay.revealed #revealBtn { display: none; }
+.end-overlay.revealed #endRecord { display: none; } /* 記到紀錄的那一行在結果卡上已經看過；縮成結果條時收起來（橫放的手機放不下） */
+.end-overlay.revealed .end-btns { flex-direction: row; }
+.end-overlay.revealed .end-btns button { flex: 1; }
+/* 攤開以後結果條固定在底下；main 的下內距由 app.js 設成結果條的高度，棋盤照樣算在一個畫面裡。狀態列（含「停在這裡」）收起來，高度讓給棋盤 */
+body.end-revealed #statusRow { display: none; }
+
+.toast { position: fixed; left: 50%; top: 40%; transform: translateX(-50%); z-index: 30; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 999px;
+  background: var(--ink); color: var(--bg); font-weight: 700; box-shadow: var(--sh-panel); text-align: center; pointer-events: none; }
+
+/* 狀態列那一塊（同五子棋） */
+.safe-top-cover { position: fixed; top: 0; left: 0; right: 0; z-index: 8; pointer-events: none; height: env(safe-area-inset-top, 0px); background: var(--bg); }
+html.has-safe-top .safe-top-cover { height: calc(env(safe-area-inset-top, 0px) + 24px); background: linear-gradient(to bottom, var(--bg) calc(100% - 12px), transparent); }
+#safeProbe { position: fixed; top: 0; left: 0; width: 0; height: env(safe-area-inset-top, 0px); visibility: hidden; pointer-events: none; }

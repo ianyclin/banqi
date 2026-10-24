@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="wood" data-scheme="light">
+<head>
+<meta charset="utf-8">
+<!-- 狀態列和頁面同色（＝ style.css 各主題的 --bg；做法同五子棋）。
+     主題（作者 2026-10-24）：data-theme＝wood（木與紙，預設）／lacquer（漆器與墨）；data-scheme＝light／dark（設定「跟系統」時照 prefers-color-scheme）。
+     在畫面出來之前先從 banqi.settings.v1 讀好放上 <html>，不會先閃一下別的顏色；app.js 之後再接手（換設定、系統深淺改了） -->
+<meta name="theme-color" content="#f4eee2">
+<script>(function () { try { var s = {}; try { s = JSON.parse(localStorage.getItem('banqi.settings.v1') || '{}') || {}; } catch (e) { s = {}; }
+  var th = s.theme === 'lacquer' ? 'lacquer' : 'wood', sc = s.scheme === 'light' || s.scheme === 'dark' ? s.scheme : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  var r = document.documentElement; r.setAttribute('data-theme', th); r.setAttribute('data-scheme', sc);
+  var BG = { 'wood-light': '#f4eee2', 'wood-dark': '#1c1814', 'lacquer-light': '#ebe5da', 'lacquer-dark': '#0e0b0a' };
+  var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', BG[th + '-' + sc]); } catch (e) { /* ignore */ } })();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>暗棋</title>
+<!-- 圖示（icons/，見 icons/make-icons.py） -->
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- 第二步 a：可玩原型。正式上線前改成 true：網址帶 ?test=1 也不會掛測試用的小門（window.__banqiApp） -->
+<script>var BANQI_RELEASE = true;</script>
+<!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
+<link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
+<!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
+<script>var BANQI_VERSION = 'v0.1'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
+document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
+</head>
+<body data-page="start">
+<main>
+  <!-- 開始頁 -->
+  <section id="start" class="page">
+    <div class="topbar">
+      <h1 data-i18n="app.title"></h1>
+      <!-- 設計稿的開始頁：標題旁一個暗子、一個帥、一個將（也讓預設的棋子字型一開頁就用到） -->
+      <span class="trio" aria-hidden="true"><span class="mini back-mini"></span><span class="mini r">帥</span><span class="mini b">將</span></span>
+      <span class="topbar-btns">
+        <button type="button" id="langBtn" class="link" data-i18n="lang.switch" data-i18n-attr="aria-label:lang.switchLabel"></button>
+        <!-- 設定（作者 2026-10-24）：開始頁右上角、對局頁上面那條都有一顆 -->
+        <button type="button" id="setBtnStart" class="icon-btn gear" data-i18n-attr="aria-label:settings.open;title:settings.open"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+      </span>
+    </div>
+    <!-- 帳號與紀錄（第二步 b-2）：現在用哪個帳號、看紀錄 -->
+    <div class="start-acts">
+      <button type="button" id="profileBtn" class="chip"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.8 19.5c1.2-3.6 4-5.4 7.2-5.4s6 1.8 7.2 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span id="profileName"></span></button>
+      <button type="button" id="recordsBtn" class="link" data-i18n="start.records"></button>
+    </div>
+    <div class="card">
+      <h2 id="hMode" data-i18n="start.mode"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hMode">
+        <label><input type="radio" name="mode" value="classic" checked><span><b data-i18n="mode.classic"></b><small data-i18n="mode.classicSub"></small></span></label>
+        <label><input type="radio" name="mode" value="chain"><span><b data-i18n="mode.chain"></b><small data-i18n="mode.chainSub"></small></span></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="hOpp" data-i18n="start.opponent"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hOpp">
+        <label><input type="radio" name="opponent" value="pvp" checked><span><b data-i18n="opp.pvp"></b><small data-i18n="opp.pvpSub"></small></span></label>
+        <label><input type="radio" name="opponent" value="bot"><span><b data-i18n="opp.bot"></b><small data-i18n="opp.botSub"></small></span></label>
+      </div>
+    </div>
+    <!-- 電腦的等級（第三步 b）：只在選「電腦」時出現；記住上次選的（banqi.settings.v1 的 level） -->
+    <div class="card" id="levelCard" hidden>
+      <h2 id="hLevel" data-i18n="start.level"></h2>
+      <div class="seg wrap levels" role="radiogroup" aria-labelledby="hLevel">
+        <label><input type="radio" name="level" value="1"><span><b data-i18n="ai.level1"></b><small data-i18n="ai.level1Sub"></small></span></label>
+        <label><input type="radio" name="level" value="2"><span><b data-i18n="ai.level2"></b></span></label>
+        <label><input type="radio" name="level" value="3"><span><b data-i18n="ai.level3"></b></span></label>
+        <label><input type="radio" name="level" value="4"><span><b data-i18n="ai.level4"></b></span></label>
+        <label><input type="radio" name="level" value="5"><span><b data-i18n="ai.level5"></b></span></label>
+        <label><input type="radio" name="level" value="6"><span><b data-i18n="ai.level6"></b></span></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="hDraw" data-i18n="start.drawPlies"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hDraw">
+        <label><input type="radio" name="drawPlies" value="30"><span>30</span></label>
+        <label><input type="radio" name="drawPlies" value="40"><span>40</span></label>
+        <label><input type="radio" name="drawPlies" value="50"><span>50</span></label>
+        <label><input type="radio" name="drawPlies" value="60" checked><span>60</span></label>
+      </div>
+      <p class="note" data-i18n="start.drawPliesSub"></p>
+    </div>
+    <div class="card">
+      <h2 id="hFirst" data-i18n="start.first"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hFirst">
+        <label><input type="radio" name="first" value="me" checked><span data-i18n="first.me"></span></label>
+        <label><input type="radio" name="first" value="opp"><span data-i18n="first.opp"></span></label>
+        <label><input type="radio" name="first" value="random"><span data-i18n="first.random"></span></label>
+      </div>
+      <p class="note" id="firstNote" data-i18n="first.pvpNote"></p>
+    </div>
+    <button type="button" id="goBtn" class="big" data-i18n="start.go"></button>
+    <details class="card rules" id="rules">
+      <summary data-i18n="start.rules"></summary>
+      <ul>
+        <li data-i18n="rules.goal"></li>
+        <li data-i18n="rules.start"></li>
+        <li data-i18n="rules.turn"></li>
+        <li data-i18n="rules.rank"></li>
+        <li data-i18n="rules.king"></li>
+        <li data-i18n="rules.cannon"></li>
+        <li id="rulesDraw"></li>
+      </ul>
+      <p class="rules-sub" data-i18n="rules.chainHead"></p>
+      <ul>
+        <li data-i18n="rules.chain1"></li>
+        <li data-i18n="rules.chain2"></li>
+        <li data-i18n="rules.chain3"></li>
+        <li data-i18n="rules.chain4"></li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- 對局頁：上＝對方、下＝我（兩人同機時是下方玩家）。
+       由上往下（作者 2026-10-24）：上面那條（右端：兩人同機時上方玩家自己的認輸、設定、眼睛）→ 棋盤與左右兩欄 → 狀態列（輪到誰、連吃中的「停在這裡」）→ 下面那條（右端：認輸） -->
+  <section id="game" class="page" hidden>
+    <div class="side opp" id="sideTop"><span class="side-btns" id="topBtns"><button type="button" id="resignTopBtn" class="link resign" data-i18n="game.resign" hidden></button><button type="button" id="setBtnGame" class="icon-btn gear" data-i18n-attr="aria-label:settings.open;title:settings.open"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button><button type="button" id="intelBtn" class="icon-btn" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path class="eye" d="M2 12c2.6-4.4 6-6.6 10-6.6s7.4 2.2 10 6.6c-2.6 4.4-6 6.6-10 6.6S4.6 16.4 2 12z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle class="eye" cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path class="slash" d="M4 20L20 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></span></div>
+    <!-- 棋盤和左右兩欄（作者 2026-10-24）：左＝對方、右＝我（兩人同機：左上方、右下方）。一次只顯示一種：「被吃」（一疊小棋子，兩個以上寫 ×N）或「沒翻」（棋子＋數字）；
+         點欄頭兩欄一起換（只記在這次開著的網頁裡），預設看設定頁的「欄位預設」。顏色還沒定時兩欄都是整副、標「?」。眼睛關掉時兩欄整個拿掉 -->
+    <div class="board-row">
+      <div id="colOpp" class="intel opp"></div>
+      <div class="board-wrap"><div id="board" class="board" role="group" data-i18n-attr="aria-label:board.label"></div></div>
+      <div id="colMe" class="intel"></div>
+    </div>
+    <div class="status-row" id="statusRow">
+      <p id="status" aria-live="polite"></p>
+      <button type="button" id="stopBtn" class="stop" data-i18n="game.stop" hidden></button>
+    </div>
+    <!-- 下方那條：認輸放在右端，不多佔一列 -->
+    <div class="side" id="sideBottom"><span class="side-btns" id="botBtns"><button type="button" id="resignBtn" class="link resign" data-i18n="game.resign"></button></span></div>
+  </section>
+
+  <!-- 紀錄頁（第二步 b-2）：這個帳號的紀錄，照玩法分（經典／連吃），每種對手一列；結束原因；最近的盤 -->
+  <section id="records" class="page" hidden>
+    <div class="topbar">
+      <button type="button" id="recBack" class="link back" data-i18n="settings.back"></button>
+      <h1 class="set-title" data-i18n="records.title"></h1>
+      <span class="topbar-spacer" aria-hidden="true"></span>
+    </div>
+    <p class="rec-who" id="recWho"></p>
+    <div class="seg" role="radiogroup" aria-labelledby="recWho">
+      <label><input type="radio" name="recMode" value="classic" checked><span data-i18n="mode.classic"></span></label>
+      <label><input type="radio" name="recMode" value="chain"><span data-i18n="mode.chain"></span></label>
+    </div>
+    <div id="recBody"></div>
+  </section>
+
+  <!-- 帳號頁（第二步 b-2）：這台裝置上的帳號；換、加、改名、刪除（刪除要確認，連同紀錄） -->
+  <section id="profiles" class="page" hidden>
+    <div class="topbar">
+      <button type="button" id="profBack" class="link back" data-i18n="settings.back"></button>
+      <h1 class="set-title" data-i18n="profiles.title"></h1>
+      <span class="topbar-spacer" aria-hidden="true"></span>
+    </div>
+    <ul class="prof-list" id="profList"></ul>
+    <form class="card prof-form" id="profForm" hidden>
+      <label for="profNameInput" id="profFormTitle"></label>
+      <input type="text" id="profNameInput" maxlength="12" autocomplete="off">
+      <div class="prof-form-btns">
+        <button type="button" id="profCancel" class="secondary" data-i18n="profiles.cancel"></button>
+        <button type="submit" id="profSave" class="good" data-i18n="profiles.save"></button>
+      </div>
+    </form>
+    <button type="button" id="profAdd" class="secondary prof-add" data-i18n="profiles.add"></button>
+    <p class="note" id="profNote"></p>
+  </section>
+
+  <!-- 設定頁（作者 2026-10-24）：開始頁和對局頁都進得來；改了馬上套用、記在 banqi.settings.v1；回去時對局原封不動 -->
+  <section id="settings" class="page" hidden>
+    <div class="topbar">
+      <button type="button" id="setBack" class="link back" data-i18n="settings.back"></button>
+      <h1 class="set-title" data-i18n="settings.title"></h1>
+      <span class="topbar-spacer" aria-hidden="true"></span>
+    </div>
+    <div class="card">
+      <h2 id="hTheme" data-i18n="settings.theme"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hTheme">
+        <label><input type="radio" name="theme" value="wood"><span><b data-i18n="theme.wood"></b></span></label>
+        <label><input type="radio" name="theme" value="lacquer"><span><b data-i18n="theme.lacquer"></b></span></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="hScheme" data-i18n="settings.scheme"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hScheme">
+        <label><input type="radio" name="scheme" value="auto"><span data-i18n="scheme.auto"></span></label>
+        <label><input type="radio" name="scheme" value="light"><span data-i18n="scheme.light"></span></label>
+        <label><input type="radio" name="scheme" value="dark"><span data-i18n="scheme.dark"></span></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="hFont" data-i18n="settings.font"></h2>
+      <!-- 選項由 app.js 的 FONTS 表產生（之後 banqi/fonts/ 的字型加進那張表就會出現在這裡） -->
+      <div class="seg wrap" role="radiogroup" aria-labelledby="hFont" id="fontSeg"></div>
+    </div>
+    <div class="card">
+      <h2 id="hCol" data-i18n="settings.colDefault"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hCol">
+        <label><input type="radio" name="colDefault" value="cap"><span data-i18n="col.cap"></span></label>
+        <label><input type="radio" name="colDefault" value="hid"><span data-i18n="col.hid"></span></label>
+      </div>
+      <p class="note" data-i18n="settings.colDefaultSub"></p>
+    </div>
+    <div class="card">
+      <h2 id="hSetDraw" data-i18n="settings.drawPlies"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hSetDraw">
+        <label><input type="radio" name="setDrawPlies" value="30"><span>30</span></label>
+        <label><input type="radio" name="setDrawPlies" value="40"><span>40</span></label>
+        <label><input type="radio" name="setDrawPlies" value="50"><span>50</span></label>
+        <label><input type="radio" name="setDrawPlies" value="60"><span>60</span></label>
+      </div>
+      <p class="note" data-i18n="settings.drawPliesSub"></p>
+    </div>
+    <div class="card">
+      <h2 id="hAnim" data-i18n="settings.anim"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hAnim">
+        <label><input type="radio" name="anim" value="slow"><span data-i18n="anim.slow"></span></label>
+        <label><input type="radio" name="anim" value="mid"><span data-i18n="anim.mid"></span></label>
+        <label><input type="radio" name="anim" value="fast"><span data-i18n="anim.fast"></span></label>
+        <label><input type="radio" name="anim" value="none"><span data-i18n="anim.none"></span></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="hLang" data-i18n="settings.lang"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hLang">
+        <label><input type="radio" name="lang" value="zh-TW"><span lang="zh-Hant">繁體中文</span></label>
+        <label><input type="radio" name="lang" value="en"><span lang="en">English</span></label>
+      </div>
+    </div>
+    <!-- 授權（SIL OFL 1.1 第 2 條：散布時附著作權聲明與授權全文）。字型名稱、著作權那一行照原文，不翻 -->
+    <div class="card lic" id="licCard">
+      <h2 data-i18n="lic.title"></h2>
+      <p class="note" data-i18n="lic.intro"></p>
+      <ul class="lic-list">
+        <li><b>霞鶩文楷 TC（LXGW WenKai TC）</b> <span data-i18n="lic.wenkaiNote"></span><br>
+          Copyright 2022-2026 The LXGW WenKai Project Authors<br>
+          <span data-i18n="lic.ofl"></span>・<span class="url">https://github.com/lxgw/LxgwWenKaiTC</span><br>
+          <a href="fonts/LICENSES/lxgw-wenkai-tc.txt" data-i18n="lic.full"></a></li>
+        <li><b>全字庫正楷體（TW-Kai）</b><br>
+          (c)2026 數位發展部（Ministry of Digital Affairs）<br>
+          <span data-i18n="lic.twkaiTerms"></span>・<span class="url">https://data.gov.tw/dataset/5961</span><br>
+          <a href="fonts/LICENSES/tw-kai.txt" data-i18n="lic.full"></a></li>
+        <li><b>Noto Serif TC（思源宋體）</b><br>
+          Copyright 2012 Google Inc. All Rights Reserved.<br>
+          <span data-i18n="lic.ofl"></span>・<span class="url">https://github.com/google/fonts/tree/main/ofl/notoseriftc</span><br>
+          <a href="fonts/LICENSES/noto-serif-tc.txt" data-i18n="lic.full"></a></li>
+      </ul>
+      <p class="note" data-i18n="lic.folder"></p>
+    </div>
+  </section>
+</main>
+
+<!-- 結束：結果卡；「看整盤排列」以後縮成底下一條，棋盤上看得到攤開的暗子 -->
+<div id="endOverlay" class="end-overlay" hidden>
+  <div class="end-card" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+    <h2 id="endTitle"></h2>
+    <p id="endReason"></p>
+    <p id="endRevealNote" class="note" data-i18n="end.revealNote" hidden></p>
+    <p id="endRecord" class="note end-record" hidden></p>
+    <div class="end-btns">
+      <button type="button" id="revealBtn" class="secondary" data-i18n="end.reveal"></button>
+      <button type="button" id="againBtn" class="good" data-i18n="end.again"></button>
+      <button type="button" id="homeBtn" class="secondary" data-i18n="end.home"></button>
+    </div>
+  </div>
+</div>
+<!-- 確認框（第二步 b-2）：接著下、刪除帳號、另一個視窗接手 -->
+<div id="dialog" class="dialog-overlay" hidden>
+  <div class="dialog-card" role="alertdialog" aria-modal="true" aria-labelledby="dialogMsg">
+    <p id="dialogMsg"></p>
+    <div class="dialog-btns" id="dialogBtns"></div>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
+<!-- 讀屏用：認輸按第一次時念「再按一次認輸」 -->
+<div id="srLive" class="sr-only" aria-live="polite"></div>
+
+<!-- 狀態列那一塊蓋頁面底色（做法同五子棋 v0.5.8：有安全區時加厚 24px、最下面 12px 淡出） -->
+<div class="safe-top-cover" aria-hidden="true"></div>
+<div id="safeProbe" aria-hidden="true"></div>
+<script>(function () { function f() { var p = document.getElementById('safeProbe'); document.documentElement.classList.toggle('has-safe-top', !!p && p.getBoundingClientRect().height > 0.5); } f(); addEventListener('resize', f); addEventListener('orientationchange', f); })();</script>
+<!-- 程式（照這個順序；都帶版本號）。ai.js：電腦對手平常在 Worker（ai-worker.js）裡算，這裡也載一份，Worker 開不了時在主執行緒算 -->
+<script>['engine.js', 'ai.js', 'stats.js', 'i18n.js', 'app.js'].forEach(function (f) { document.write('<script src="' + vurl(f) + '"><\/script>'); });</script>
+<!-- 離線（sw.js）：只在發布版註冊（tools/README-release.md 第 7 節第二組） -->
+<script>if (BANQI_RELEASE === true && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
+</body>
+</html>
