@@ -69,7 +69,9 @@
   var SETTINGS_KEY = 'banqi.settings.v1';
   // level＝上次選的電腦等級（開始頁；預設 3 初級）
   var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, anim: 'mid', level: 3 };
-  var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], anim: ['slow', 'mid', 'fast', 'none'], level: [1, 2, 3, 4, 5, 6] };
+  // level 的選項照 ai.js 的 LEVELS（開始頁的等級滑桿也是；加一級時這裡不用改）
+  var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], anim: ['slow', 'mid', 'fast', 'none'],
+    level: AIX.LEVELS.map(function (l) { return l.id; }) };
   // 動畫速度：CSS 的 --anim（所有 transition／animation 的秒數乘它）
   var ANIM = { slow: 1.6, mid: 1, fast: 0.5, none: 0 };
   // 棋子字體：設定頁的選項就是這張表（id 記在設定裡；label 是 i18n 的鍵；stack 放進 CSS 的 --font-piece；weight 放進 --piece-wt；
@@ -1273,7 +1275,8 @@
     var o = r.o;
     G.gen++;
     AI.cancel(); G.thinking = null;
-    ['mode', 'opponent', 'first', 'level'].forEach(function (k) { if (o.setup[k] != null) check(k, o.setup[k]); });
+    ['mode', 'opponent', 'first'].forEach(function (k) { if (o.setup[k] != null) check(k, o.setup[k]); });
+    if (o.setup.level != null) setLevelUI(Number(o.setup.level)); // 等級滑桿也停到這一盤的等級（不寫進設定）
     readSetup(); // 開始頁的等級卡、兩人同機的說明跟著剛勾的那一項（回首頁才看得到）；readSetup 不存設定、不改 G.set
     G.setup = o.setup; // 這一盤的設定照存檔（readSetup 讀到的平手步數是開始頁現在的，不是這一盤的）
     G.me = o.me; G.bot = o.bot; G.level = o.bot !== null ? o.level : G.set.level;
@@ -1391,16 +1394,111 @@
 
   function readSetup() {
     function val(name) { var el = document.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : null; }
-    G.setup = { mode: val('mode'), opponent: val('opponent'), drawPlies: Number(val('drawPlies')), first: val('first'), level: Number(val('level')) || G.set.level };
+    G.setup = { mode: val('mode'), opponent: val('opponent'), drawPlies: Number(val('drawPlies')), first: val('first'), level: levelIdAt(Number($('lvlRange').value)) || G.set.level };
     $('firstNote').hidden = G.setup.opponent !== 'pvp';
     $('levelCard').hidden = G.setup.opponent !== 'bot'; // 等級只在選電腦時出現
     $('rulesDraw').textContent = t('rules.draw', { n: G.setup.drawPlies });
+  }
+
+  // ------------------------------------------------------------ 開始頁的等級滑桿（作者 2026-10-25）
+  // 一格一個等級，格數＝AIX.LEVELS 的長度（加一級時滑桿不用改；但 readResume 的等級清單、stats.js 的 LEVELS 還寫死 1–6，要一起改）。
+  // range 的值＝第幾格（1 起），對到 LEVELS[值 - 1].id。
+  // 鍵盤：原生 range 自己處理（左右／上下／Home／End），值改了送 input。
+  // 手指、滑鼠、筆：range 不收（CSS pointer-events: none），由 #lvl 接。#lvl 是 touch-action: pan-y，往上下滑由瀏覽器捲頁面（會送 pointercancel，什麼都不換）。
+  //   按在圓子上（中心左右各 LVL_GRAB 內）、往左右拖過 LVL_DRAG＝拖：停到手指底下那一格；
+  //   按下到放開都沒動超過 LVL_TAP＝點：選那一格（整條分成等寬的 n 段，格下的名字就在那一段裡）；
+  //   其他（往上下拖、按在別處往左右拖）都不換
+  var LVL_GRAB = 22, LVL_DRAG = 6, LVL_TAP = 8;
+  var lvlDrag = null;
+  function levelPosOf(id) {
+    for (var i = 0; i < AIX.LEVELS.length; i++) if (AIX.LEVELS[i].id === id) return i + 1;
+    return null;
+  }
+  function levelIdAt(pos) { var lv = AIX.LEVELS[pos - 1]; return lv ? lv.id : null; }
+  function levelPosAt(x) {
+    var r = $('lvl').getBoundingClientRect(), n = AIX.LEVELS.length;
+    return Math.max(1, Math.min(n, Math.floor((x - r.left) / r.width * n) + 1));
+  }
+  function levelThumbX() {
+    var r = $('lvl').getBoundingClientRect();
+    return r.left + (Number($('lvlRange').value) - 0.5) / AIX.LEVELS.length * r.width;
+  }
+  // 照 range 現在的值畫：上面的大字、圓子與填色的位置（CSS 的 --p）、選到的那一格、讀屏念的 aria-valuetext
+  function renderLevel() {
+    var pos = Number($('lvlRange').value), name = t(levelInfo(levelIdAt(pos)).name);
+    $('lvlRange').setAttribute('aria-valuetext', name);
+    $('lvlName').textContent = name;
+    $('lvl').style.setProperty('--p', String(pos - 1));
+    $('lvl').classList.toggle('dots', t('start.levelTicks') === 'dots');
+    $('lvlStops').querySelectorAll('.lvl-stop').forEach(function (el, i) { el.classList.toggle('on', i + 1 === pos); });
+    $('lvlTicks').querySelectorAll('.lvl-tick').forEach(function (el, i) { el.classList.toggle('on', i + 1 <= pos); });
+  }
+  // 程式放的（開頁讀設定、接著下）：只畫，不記
+  function setLevelUI(id) {
+    var pos = levelPosOf(id);
+    if (pos === null) return;
+    $('lvlRange').value = String(pos);
+    renderLevel();
+  }
+  // 使用者換的：畫、記住上次的等級、開始頁的 G.setup 跟著
+  function pickLevel(pos) {
+    var r = $('lvlRange');
+    if (Number(r.value) === pos) return;
+    r.value = String(pos);
+    renderLevel();
+    setSetting('level', levelIdAt(pos));
+    readSetup();
+  }
+  function buildLevelSlider() {
+    var n = AIX.LEVELS.length, box = $('lvl'), ticks = $('lvlTicks'), stops = $('lvlStops'), range = $('lvlRange');
+    range.max = String(n);
+    box.style.setProperty('--n', String(n));
+    ticks.textContent = ''; stops.textContent = '';
+    AIX.LEVELS.forEach(function (lv) {
+      var k = document.createElement('span'); k.className = 'lvl-tick'; ticks.appendChild(k);
+      var s = document.createElement('span'); s.className = 'lvl-stop'; s.setAttribute('data-i18n', lv.name); stops.appendChild(s);
+    });
+    range.addEventListener('input', function () {
+      renderLevel();
+      setSetting('level', levelIdAt(Number(range.value)));
+      readSetup();
+    });
+    function end() { lvlDrag = null; box.classList.remove('dragging'); }
+    box.addEventListener('pointerdown', function (e) {
+      if (lvlDrag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      var tr = $('lvlTrack').getBoundingClientRect();
+      var thumb = e.clientY >= tr.top && e.clientY <= tr.bottom && Math.abs(e.clientX - levelThumbX()) <= LVL_GRAB;
+      lvlDrag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, thumb: thumb, moved: false, dragging: false };
+      if (e.pointerType === 'mouse') e.preventDefault(); // 滑鼠拖的時候不要選到字
+    });
+    box.addEventListener('pointermove', function (e) {
+      var d = lvlDrag;
+      if (!d || e.pointerId !== d.id) return;
+      var dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+      if (Math.abs(dx) > LVL_TAP || Math.abs(dy) > LVL_TAP) d.moved = true;
+      if (!d.dragging && d.thumb && Math.abs(dx) >= LVL_DRAG && Math.abs(dx) > Math.abs(dy)) {
+        d.dragging = true;
+        box.classList.add('dragging');
+        try { box.setPointerCapture(e.pointerId); } catch (er) { /* 滑鼠拖出去也跟著 */ }
+        range.focus({ preventScroll: true });
+      }
+      if (d.dragging) pickLevel(levelPosAt(e.clientX));
+    });
+    box.addEventListener('pointerup', function (e) {
+      var d = lvlDrag;
+      if (!d || e.pointerId !== d.id) return;
+      if (!d.dragging && !d.moved) { range.focus({ preventScroll: true }); pickLevel(levelPosAt(e.clientX)); }
+      end();
+    });
+    box.addEventListener('pointercancel', function (e) { if (lvlDrag && e.pointerId === lvlDrag.id) end(); });
   }
 
   function applyLang() {
     I18N.apply();
     document.documentElement.lang = I18N.getLang() === 'en' ? 'en' : 'zh-Hant';
     document.title = t('app.title');
+    renderLevel();
+    $('verLine').textContent = t('settings.version', { v: window.BANQI_VERSION || '' });
     readSetup();
     check('lang', I18N.getLang());
     ['top', 'bottom'].forEach(function (k) {
@@ -1426,13 +1524,13 @@
     buildFontSeg();
     buildBoard();
     check('drawPlies', G.set.drawPlies);
-    check('level', G.set.level);
+    buildLevelSlider();
+    setLevelUI(G.set.level);
     applyLang();
     syncSettingsForm();
     document.querySelectorAll('#start input[type="radio"]').forEach(function (el) {
       el.addEventListener('change', function () {
         if (el.name === 'drawPlies') setSetting('drawPlies', Number(el.value));
-        else if (el.name === 'level') { setSetting('level', Number(el.value)); readSetup(); } // 記住上次的等級
         else readSetup();
       });
     });

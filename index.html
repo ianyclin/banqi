@@ -22,7 +22,7 @@
 <!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
 <link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
 <!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
-<script>var BANQI_VERSION = 'v0.1.1'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+<script>var BANQI_VERSION = 'v0.1.2'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
 function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
 document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
 </head>
@@ -48,27 +48,32 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
     <div class="card">
       <h2 id="hMode" data-i18n="start.mode"></h2>
       <div class="seg" role="radiogroup" aria-labelledby="hMode">
-        <label><input type="radio" name="mode" value="classic" checked><span><b data-i18n="mode.classic"></b><small data-i18n="mode.classicSub"></small></span></label>
-        <label><input type="radio" name="mode" value="chain"><span><b data-i18n="mode.chain"></b><small data-i18n="mode.chainSub"></small></span></label>
+        <label><input type="radio" name="mode" value="classic" checked><span><b data-i18n="mode.classic"></b></span></label>
+        <label><input type="radio" name="mode" value="chain"><span><b data-i18n="mode.chain"></b></span></label>
       </div>
     </div>
     <div class="card">
       <h2 id="hOpp" data-i18n="start.opponent"></h2>
       <div class="seg" role="radiogroup" aria-labelledby="hOpp">
-        <label><input type="radio" name="opponent" value="pvp" checked><span><b data-i18n="opp.pvp"></b><small data-i18n="opp.pvpSub"></small></span></label>
-        <label><input type="radio" name="opponent" value="bot"><span><b data-i18n="opp.bot"></b><small data-i18n="opp.botSub"></small></span></label>
+        <label><input type="radio" name="opponent" value="pvp" checked><span><b data-i18n="opp.pvp"></b></span></label>
+        <label><input type="radio" name="opponent" value="bot"><span><b data-i18n="opp.bot"></b></span></label>
       </div>
     </div>
-    <!-- 電腦的等級（第三步 b）：只在選「電腦」時出現；記住上次選的（banqi.settings.v1 的 level） -->
+    <!-- 電腦的等級（第三步 b）：只在選「電腦」時出現；記住上次選的（banqi.settings.v1 的 level）。
+         左右拖的滑桿（作者 2026-10-25）：一個等級一格、只停在格上；格數、格下的名字、max 都由 app.js 照 ai.js 的 LEVELS 產生（加一級不用改這裡）。
+         底下是原生的 range（鍵盤左右／Home／End、讀屏念 aria-valuetext＝等級名）；手指與滑鼠由 app.js 自己接：
+         只有橫著拖圓子、或點一格才會換，從滑桿上開始往上下滑照樣捲頁面 -->
     <div class="card" id="levelCard" hidden>
       <h2 id="hLevel" data-i18n="start.level"></h2>
-      <div class="seg wrap levels" role="radiogroup" aria-labelledby="hLevel">
-        <label><input type="radio" name="level" value="1"><span><b data-i18n="ai.level1"></b><small data-i18n="ai.level1Sub"></small></span></label>
-        <label><input type="radio" name="level" value="2"><span><b data-i18n="ai.level2"></b></span></label>
-        <label><input type="radio" name="level" value="3"><span><b data-i18n="ai.level3"></b></span></label>
-        <label><input type="radio" name="level" value="4"><span><b data-i18n="ai.level4"></b></span></label>
-        <label><input type="radio" name="level" value="5"><span><b data-i18n="ai.level5"></b></span></label>
-        <label><input type="radio" name="level" value="6"><span><b data-i18n="ai.level6"></b></span></label>
+      <p class="lvl-name" id="lvlName" aria-hidden="true"></p>
+      <div class="lvl" id="lvl">
+        <div class="lvl-track" id="lvlTrack">
+          <input type="range" id="lvlRange" class="lvl-range" min="1" max="1" step="1" value="1" aria-labelledby="hLevel">
+          <span class="lvl-rail" aria-hidden="true"><span class="lvl-fill" id="lvlFill"></span></span>
+          <span class="lvl-ticks" id="lvlTicks" aria-hidden="true"></span>
+          <span class="lvl-thumb mini" id="lvlThumb" aria-hidden="true"></span>
+        </div>
+        <div class="lvl-stops" id="lvlStops" aria-hidden="true"></div>
       </div>
     </div>
     <div class="card">
@@ -79,7 +84,6 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
         <label><input type="radio" name="drawPlies" value="50"><span>50</span></label>
         <label><input type="radio" name="drawPlies" value="60" checked><span>60</span></label>
       </div>
-      <p class="note" data-i18n="start.drawPliesSub"></p>
     </div>
     <div class="card">
       <h2 id="hFirst" data-i18n="start.first"></h2>
@@ -247,6 +251,8 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
       </ul>
       <p class="note" data-i18n="lic.folder"></p>
     </div>
+    <!-- 版本（作者 2026-10-25）：「暗棋 v0.1.1」，數字來自上面的 BANQI_VERSION（app.js 的 applyLang 填） -->
+    <p class="note ver-line" id="verLine"></p>
   </section>
 </main>
 
