@@ -22,7 +22,7 @@
 <!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
 <link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
 <!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
-<script>var BANQI_VERSION = 'v0.1.8'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+<script>var BANQI_VERSION = 'v0.1.9'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
 function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
 document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
 </head>
@@ -185,6 +185,43 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
       <label><input type="radio" name="recMode" value="chain"><span data-i18n="mode.chain"></span></label>
     </div>
     <div id="recBody"></div>
+    <!-- 匯出／匯入（2026-10-25；照五子棋的 exportBtn／importBtn）：一個 JSON 檔帶全部的帳號（含積分、成就）、紀錄、棋譜；匯入是合併、不刪本機的東西 -->
+    <div class="rec-io">
+      <button type="button" id="exportBtn" class="secondary" data-i18n="io.export"></button>
+      <button type="button" id="importBtn" class="secondary" data-i18n="io.import"></button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </section>
+
+  <!-- 棋局回放（2026-10-25；replay.js）：紀錄頁「最近的盤」有棋譜的那幾盤按「回放」進來。只看不點：棋盤與兩欄是對局頁的同一套樣子（主題照樣），
+       一步＝棋譜的一步（連吃整串算一步，吃了哪些子寫在上面那一行）。←／→ 一步一步、Home／End 到開局／最後一步；跟對局頁一樣一個畫面放得下 -->
+  <section id="replay" class="page" hidden>
+    <div class="topbar">
+      <button type="button" id="rpBack" class="link back" data-i18n="settings.back"></button>
+      <h1 class="set-title" data-i18n="rp.title"></h1>
+      <span class="topbar-spacer" aria-hidden="true"></span>
+    </div>
+    <p class="rp-meta" id="rpMeta"></p>
+    <p class="rp-move" id="rpMove" aria-live="polite"></p>
+    <div class="board-row rp-row">
+      <div id="rpColOpp" class="intel opp"></div>
+      <div class="board-wrap"><div id="rpBoard" class="board" role="group" data-i18n-attr="aria-label:board.label"></div></div>
+      <div id="rpColMe" class="intel"></div>
+    </div>
+    <div class="rp-ctl">
+      <div class="rp-steps">
+        <button type="button" id="rpFirst" class="icon-btn" data-i18n-attr="aria-label:rp.first;title:rp.first"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M6.5 5.5v13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 6L9.5 12 18 18z" fill="currentColor"/></svg></button>
+        <button type="button" id="rpPrev" class="icon-btn" data-i18n-attr="aria-label:rp.prev;title:rp.prev"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M16 6L7.5 12 16 18z" fill="currentColor"/></svg></button>
+        <input type="range" id="rpSlider" min="0" max="0" step="1" value="0" data-i18n-attr="aria-label:rp.slider">
+        <button type="button" id="rpNext" class="icon-btn" data-i18n-attr="aria-label:rp.next;title:rp.next"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M8 6l8.5 6L8 18z" fill="currentColor"/></svg></button>
+        <button type="button" id="rpLast" class="icon-btn" data-i18n-attr="aria-label:rp.last;title:rp.last"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M6 6l8.5 6L6 18z" fill="currentColor"/><path d="M17.5 5.5v13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="rp-opts">
+        <!-- 自動播放：大約一秒一步，到最後一步停；自己按了別的步就停 -->
+        <button type="button" id="rpPlay" class="secondary rp-play" aria-pressed="false"><svg class="ic-play" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M3 6l8 6-8 6zM12 6l8 6-8 6z" fill="currentColor"/></svg><svg class="ic-pause" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg><span data-i18n="rp.play"></span></button>
+        <label class="rp-reveal"><input type="checkbox" id="rpReveal"><span data-i18n="rp.reveal"></span></label>
+      </div>
+    </div>
   </section>
 
   <!-- 帳號頁（第二步 b-2）：這台裝置上的帳號；換、加、改名、刪除（刪除要確認，連同紀錄） -->
@@ -261,6 +298,15 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
       </div>
       <p class="note" data-i18n="settings.noChaseSub"></p>
     </div>
+    <!-- 危險提醒（作者 2026-10-25）：輪到你時標出下一步可能被吃的子；預設開，跟高手、神將下時不提醒（app.js dangerSquares） -->
+    <div class="card">
+      <h2 id="hSetDanger" data-i18n="settings.danger"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hSetDanger">
+        <label><input type="radio" name="danger" value="on"><span data-i18n="danger.on"></span></label>
+        <label><input type="radio" name="danger" value="off"><span data-i18n="danger.off"></span></label>
+      </div>
+      <p class="note" data-i18n="settings.dangerSub"></p>
+    </div>
     <div class="card">
       <h2 id="hAnim" data-i18n="settings.anim"></h2>
       <div class="seg" role="radiogroup" aria-labelledby="hAnim">
@@ -268,6 +314,14 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
         <label><input type="radio" name="anim" value="mid"><span data-i18n="anim.mid"></span></label>
         <label><input type="radio" name="anim" value="fast"><span data-i18n="anim.fast"></span></label>
         <label><input type="radio" name="anim" value="none"><span data-i18n="anim.none"></span></label>
+      </div>
+    </div>
+    <!-- 音效（sound.js，當場合成、沒有音檔）：預設開；動畫「無」、減少動態效果都不關 -->
+    <div class="card">
+      <h2 id="hSound" data-i18n="settings.sound"></h2>
+      <div class="seg" role="radiogroup" aria-labelledby="hSound">
+        <label><input type="radio" name="sound" value="on"><span data-i18n="sound.on"></span></label>
+        <label><input type="radio" name="sound" value="off"><span data-i18n="sound.off"></span></label>
       </div>
     </div>
     <div class="card">
@@ -320,10 +374,14 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
     <!-- 這一盤新解鎖的成就（app.js renderEnd）：三個以內一個一行，超過三個併成一行 -->
     <p id="endAch" class="end-ach" hidden></p>
     <p id="endRecord" class="note end-record" hidden></p>
+    <!-- 按鈕（作者 2026-10-25）：「再來一盤」整列寬的主要鈕；底下「看整盤排列」「回首頁」並排、一樣寬的次要藥丸（放不下才各佔一列）。
+         DOM 順序＝看到的順序（Tab 鍵先到再來一盤） -->
     <div class="end-btns">
-      <button type="button" id="revealBtn" class="secondary" data-i18n="end.reveal"></button>
       <button type="button" id="againBtn" class="good" data-i18n="end.again"></button>
-      <button type="button" id="homeBtn" class="secondary" data-i18n="end.home"></button>
+      <div class="end-sub">
+        <button type="button" id="revealBtn" class="secondary" data-i18n="end.reveal"></button>
+        <button type="button" id="homeBtn" class="secondary" data-i18n="end.home"></button>
+      </div>
     </div>
   </div>
 </div>
@@ -345,7 +403,7 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
 <div id="safeProbe" aria-hidden="true"></div>
 <script>(function () { function f() { var p = document.getElementById('safeProbe'); document.documentElement.classList.toggle('has-safe-top', !!p && p.getBoundingClientRect().height > 0.5); } f(); addEventListener('resize', f); addEventListener('orientationchange', f); })();</script>
 <!-- 程式（照這個順序；都帶版本號）。ai.js：電腦對手平常在 Worker（ai-worker.js）裡算，這裡也載一份，Worker 開不了時在主執行緒算 -->
-<script>['engine.js', 'ai.js', 'rating.js', 'stats.js', 'i18n.js', 'app.js'].forEach(function (f) { document.write('<script src="' + vurl(f) + '"><\/script>'); });</script>
+<script>['engine.js', 'ai.js', 'rating.js', 'stats.js', 'i18n.js', 'replay.js', 'sound.js', 'app.js'].forEach(function (f) { document.write('<script src="' + vurl(f) + '"><\/script>'); });</script>
 <!-- 離線（sw.js）：只在發布版註冊（tools/README-release.md 第 7 節第二組） -->
 <script>if (BANQI_RELEASE === true && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
 </body>

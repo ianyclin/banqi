@@ -8,6 +8,7 @@
 (function () {
   'use strict';
   var E = window.BanqiEngine, I18N = window.I18N, t = I18N.t, AIX = window.BanqiAI, GS = window.BanqiStats, RT = window.BanqiRating;
+  var SND = window.BanqiSound || { play: function () { return false; }, setEnabled: function () {} }; // 音效（sound.js）；沒載到就不出聲
   function vurl(p) { return typeof window.vurl === 'function' ? window.vurl(p) : p; } // 帶版本號的網址（index.html 的 vurl；單一檔案版沒有就照舊）
   var TEST = window.BANQI_RELEASE !== true && /[?&]test=1(?:&|$)/.test(location.search);
   var HIDDEN = E.HIDDEN;
@@ -72,9 +73,10 @@
   var SETTINGS_KEY = 'banqi.settings.v1';
   // level＝上次選的電腦等級（開始頁；預設 3 初級）
   // noChase＝禁止長捉（規格 8.5；'on'／'off'，預設關）：跟 drawPlies 一樣是開局設定，下一盤才用
-  var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, noChase: 'off', anim: 'mid', level: 3 };
+  // danger＝危險提醒（'on'／'off'，預設開；見 dangerSquares）
+  var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, noChase: 'off', anim: 'mid', level: 3, sound: 'on', danger: 'on' };
   // level 的選項照 ai.js 的 LEVELS（開始頁的等級滑桿也是；加一級時這裡不用改）
-  var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], noChase: ['off', 'on'], anim: ['slow', 'mid', 'fast', 'none'],
+  var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], noChase: ['off', 'on'], anim: ['slow', 'mid', 'fast', 'none'], sound: ['on', 'off'], danger: ['on', 'off'],
     level: AIX.LEVELS.map(function (l) { return l.id; }) };
   // 動畫速度：CSS 的 --anim（所有 transition／animation 的秒數乘它）
   var ANIM = { slow: 1.6, mid: 1, fast: 0.5, none: 0 };
@@ -247,6 +249,17 @@
       }
     });
     return out;
+  }
+
+  // 危險提醒（作者 2026-10-25）：輪到人（兩人同機＝輪到的那一位）時，標出自己會被對方下一步吃掉的明子（引擎的 threatened：只算看得到的子、連吃只算第一下）。
+  // 設定關掉、跟高手（L6）神將（L7）下（同五子棋的 noHintTier）、連吃中、攻擊暗子翻開那一下、分出勝負以後都不標。每個盤面只算一次（G.state 換了才重算）
+  var NO_HINT_LEVEL = 6;
+  function dangerSquares() {
+    var s = G.state;
+    if (!s || G.set.danger !== 'on' || (G.bot !== null && G.level >= NO_HINT_LEVEL)) return [];
+    if (G.over || s.result || s.chain || G.shown || !isHuman(s.turn)) return [];
+    if (G.dangerOf !== s) { G.dangerOf = s; G.danger = E.threatened(s); }
+    return G.danger;
   }
 
   // ------------------------------------------------------------ 棋盤
@@ -455,7 +468,8 @@
 
   function renderBoard() {
     var s = G.state, b = G.shown || s.board, tg = targets();
-    var marks = {};
+    var marks = {}, danger = {};
+    dangerSquares().forEach(function (sq) { danger[sq] = true; });
     (G.path.length ? G.path : G.last).forEach(function (sq) { marks[sq] = true; });
     var markCls = G.path.length ? 'path' : 'last';
     for (var sq = 0; sq < E.N; sq++) {
@@ -473,6 +487,7 @@
       if (tg.to[sq]) cls.push(tg.to[sq]);
       if (tg.screens[sq]) cls.push('screen');
       if (marks[sq]) cls.push(markCls);
+      if (danger[sq]) cls.push('danger');
       el.className = cls.join(' ');
       var up = isLetter(disp);
       el._ch.textContent = up ? E.NAMES[disp] : '';
@@ -588,7 +603,12 @@
     var s = G.state;
     var txt = statusText();
     if (G.bot !== null && s.colors[0] === null && s.turn === G.bot) txt = t('status.firstFlipBot');
-    if ($('status').textContent !== txt) $('status').textContent = txt;
+    // 危險提醒：讀屏在輪到誰的那一句後面多念「有 n 個子有危險」（只給讀屏，畫面上的字不變）
+    var dn = dangerSquares().length, dtx = dn ? t(dn === 1 ? 'status.danger1' : 'status.danger', { n: dn }) : '';
+    if ($('status').textContent !== txt + (dtx ? ' ' + dtx : '')) {
+      $('status').textContent = txt;
+      if (dtx) { var sr = document.createElement('span'); sr.className = 'sr-only'; sr.textContent = ' ' + dtx; $('status').appendChild(sr); }
+    }
     $('stopBtn').hidden = !(!G.over && !G.busy && s.chain && isHuman(s.turn));
     var said = renderRepWarn();
     renderDrawWarn(said);
@@ -853,6 +873,7 @@
     if (!before.chain) G.path = [];
     if (m.type === 'flip') G.path.push(m.sq);
     else if (m.type !== 'stop') { if (!G.path.length) G.path.push(m.from); G.path.push(m.to); }
+    var n = G.path.length - 1; // 音效：這一手的第幾吃（連吃一吃比一吃高）
     G.state = r.state;
     var mid = !!(r.state.chain && r.state.turn === mover);
     if (!mid) { G.last = G.path; G.path = []; }
@@ -866,9 +887,11 @@
       G.busy = true;
       render();
       if (!atk.success) toast(t(human ? 'toast.failed' : 'toast.failedBot', { piece: pieceName(atk.revealed) }));
+      if (!atk.success) SND.play('attackFail'); // 翻開、沒吃到：這一下就看得出來
       G.queue = [];
       later(MS.attack, function () {
         G.shown = null; G.busy = false; render(); next();
+        if (atk.success) SND.play('capture', { step: n }); // 攻擊成功：吃下去那一下
         // 這一下裡點的格子：照順序點；點到又不收了（又一次攻擊、輪到電腦、分出勝負）剩下的就不要了
         var q = G.queue;
         G.queue = [];
@@ -877,6 +900,7 @@
       return;
     }
     render();
+    SND.play(m.type, { step: n }); // 翻、走、吃（stop 不出聲）
     next();
   }
 
@@ -969,6 +993,7 @@
     showPage('game');
     render();
     layoutBoard();
+    if (isSJ()) SND.play('sjCard'); // 神將：開場一聲鐘（字卡出來那一下；減少動態效果、動畫「無」不出字卡也照響）
     if (cardWanted()) showCard();
     else sweepCap();
     next();
@@ -994,6 +1019,7 @@
     render();
     renderEnd();
     $('endOverlay').hidden = false;
+    SND.play(res.winner === null ? 'draw' : (G.bot === null ? res.reason !== 'resign' : res.winner === G.me) ? 'win' : res.reason === 'resign' ? 'resign' : 'loss'); // 兩人同機：分出勝負＝贏的聲、認輸＝輸的聲
     $('againBtn').focus();
     if (G.lastAch.length) $('srLive').textContent = achLines().join(' '); // 讀屏：新解鎖的成就念一次
   }
@@ -1137,6 +1163,8 @@
     $('settings').hidden = name !== 'settings';
     $('records').hidden = name !== 'records';
     $('profiles').hidden = name !== 'profiles';
+    $('replay').hidden = name !== 'replay'; // 棋局回放（replay.js）
+    if (name !== 'replay' && window.BanqiReplay) window.BanqiReplay.stop();
     document.body.setAttribute('data-page', name);
     if (name === 'start') {
       G.gen++;
@@ -1277,6 +1305,7 @@
     GS.achSync(rec.pid); // 成就：先靜靜補上別的視窗下完的盤讓它成立的，結算卡只寫這一盤讓它成立的
     var x = settleRec(rec, ex);
     if (!GS.upsert(rec)) return null;
+    GS.saveRec(rec, G.record, G.me); // 棋局回放：整盤的棋譜另外存（stats.js 的 banqi.recs.v1，最近 50 盤）；存不下不影響紀錄
     if (x) { GS.setRating(rec.pid, rec.mode, x.entry); G.lastBadge = { from: x.badgeBefore, to: x.entry.badge }; }
     G.recAt = rec.at;
     G.lastAch = settleAch(rec, G.record, G.me);
@@ -1365,12 +1394,13 @@
     });
     dr.appendChild(tr2);
     var dl = more('recent', t('records.recent'));
-    var ul = cellEl('ul', 'rec-recent');
+    var ul = cellEl('ul', 'rec-recent'), hasRec = GS.recSet(p.id);
     list.filter(function (g) { return g.mode === mode; }).sort(function (a, b) { return GS.timeOf(b) - GS.timeOf(a); }).slice(0, 10).forEach(function (g) {
       var li = cellEl('li', 'res-' + g.result);
       li.appendChild(cellEl('span', 'rec-when', whenText(GS.timeOf(g))));
       li.appendChild(cellEl('span', 'rec-line', recLine(g)));
       if (g.elo && typeof g.elo.delta === 'number') li.appendChild(cellEl('span', 'rec-delta ' + (g.elo.delta > 0 ? 'up' : g.elo.delta < 0 ? 'down' : 'same'), t('records.delta', { d: signed(g.elo.delta) })));
+      if (hasRec[String(g.ts)]) li.appendChild(replayBtn(g)); // 棋局回放：有棋譜的盤（最近 50 盤）才有
       ul.appendChild(li);
     });
     dl.appendChild(ul);
@@ -1404,6 +1434,71 @@
   function ymd(at) { var d = new Date(at); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   var recOpen = { reasons: false, recent: false, ach: false };
   function openRecords() { showPage('records'); renderRecords(); $('recBack').focus({ preventScroll: true }); }
+  // 棋局回放（replay.js）：紀錄頁「最近的盤」的「回放」鈕；回來時焦點回到同一盤的鈕
+  function replayBtn(g) {
+    var b = cellEl('button', 'secondary rec-replay', t('rp.btn'));
+    b.type = 'button';
+    b.setAttribute('data-ts', String(g.ts));
+    b.setAttribute('aria-label', t('rp.btnLabel', { when: whenText(GS.timeOf(g)), line: recLine(g) }));
+    b.addEventListener('click', function () {
+      var r = GS.recOf(g.ts);
+      if (!r || !window.BanqiReplay.open(g, r)) toast(t('rp.bad'));
+    });
+    return b;
+  }
+  function closeReplay(ts) {
+    showPage('records');
+    renderRecords();
+    var b = document.querySelector('#recBody .rec-replay[data-ts="' + ts + '"]');
+    if (b) b.focus(); else $('recBack').focus({ preventScroll: true });
+  }
+
+  // ------------------------------------------------------------ 匯出／匯入（2026-10-25；照五子棋的 exportBtn／importBtn；存法與合併規則見 stats.js 的 exportText／importText）
+  // 匯出：一個 JSON 檔 banqi-backup-YYYYMMDD.json。iOS（主畫面開的網頁下載檔案不好找）有分享檔案就先開分享表，取消＝不做；分享失敗或沒有分享＝下載
+  var lastExport = null; // 測試小門：最後一次匯出的檔名與內容
+  function backupName(d) { return 'banqi-backup-' + d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2) + '.json'; }
+  function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+  function downloadText(name, text) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
+    a.hidden = true;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function exportBackup() {
+    var text = GS.exportText(window.BANQI_VERSION || ''), name = backupName(new Date()), file = null;
+    lastExport = { name: name, text: text };
+    if (isIOS() && navigator.share && navigator.canShare && typeof File === 'function') {
+      try { file = new File([text], name, { type: 'application/json' }); if (!navigator.canShare({ files: [file] })) file = null; } catch (e) { file = null; }
+    }
+    if (!file) { downloadText(name, text); return; }
+    navigator.share({ files: [file] }).catch(function (e) { if (!e || e.name !== 'AbortError') downloadText(name, text); });
+  }
+  // 匯入完的那一句：新增幾個帳號、幾盤紀錄、幾盤棋譜；有略過的才接「；略過 …」
+  function importMsg(r) {
+    if (!r.ok) return t(r.error === 'newer' ? 'io.newer' : r.error === 'bad' ? 'io.bad' : 'io.saveFail');
+    var skip = [];
+    if (r.skipProfiles.length) skip.push(t('io.skipProfiles', { n: r.skipProfiles.length, max: GS.MAX_PROFILES, names: r.skipProfiles.join(t('io.sep')) }));
+    if (r.dup) skip.push(t('io.skipDup', { n: r.dup }));
+    if (r.bad) skip.push(t('io.skipBad', { n: r.bad }));
+    if (r.orphan) skip.push(t('io.skipOrphan', { n: r.orphan }));
+    if (r.cap) skip.push(t('io.skipCap', { n: r.cap, max: GS.MAX_GAMES }));
+    return t('io.done', { p: r.profiles, g: r.games, r: r.recs }) + (skip.length ? t('io.skip', { list: skip.join(t('io.sep')) }) : '') + t('io.end');
+  }
+  function importDone(r) {
+    renderRecords();
+    renderProfileBtn();
+    showDialog(importMsg(r), [{ label: t('io.ok'), primary: true }]);
+    return r;
+  }
+  function importFile(f) {
+    var rd = new FileReader();
+    rd.onload = function () { importDone(GS.importText(String(rd.result))); };
+    rd.onerror = function () { importDone({ ok: false, error: 'bad' }); };
+    rd.readAsText(f);
+  }
 
   // ------------------------------------------------------------ 接著下（第二步 b-2；照五子棋的 gomoku.resume.v1）
   // 下到一半的盤每走一步就整盤存在 banqi.resume.v1（這台裝置一份），網頁被收掉前（pagehide）、切到背景時再存一次。
@@ -1489,6 +1584,7 @@
     if (x) GS.setRating(rec.pid, rec.mode, x.entry);
     var rtxt = null;
     try { rtxt = E.encodeRecord(st); } catch (e) { rtxt = null; }
+    if (rtxt) GS.saveRec(rec, rtxt, o.me); // 棋局回放：放棄的盤也存到放棄時的那一步
     settleAch(rec, rtxt, o.me); // 放棄算輸：照輸棋看（沒有結算卡，解鎖的靜靜記下）
     renderProfileBtn();
     return rec;
@@ -1599,7 +1695,8 @@
   function syncSettingsForm() {
     var s = G.set;
     check('theme', s.theme); check('scheme', s.scheme); check('font', s.font); check('colDefault', s.colDefault);
-    check('setDrawPlies', s.drawPlies); check('noChase', s.noChase); check('anim', s.anim); check('lang', I18N.getLang());
+    check('setDrawPlies', s.drawPlies); check('noChase', s.noChase); check('danger', s.danger); check('anim', s.anim); check('lang', I18N.getLang());
+    check('sound', s.sound);
   }
 
   // 改一項設定：記下來、馬上套用
@@ -1612,6 +1709,7 @@
     else if (k === 'colDefault') { G.colMode = v; renderIntel(); }
     else if (k === 'drawPlies') { check('drawPlies', v); check('setDrawPlies', v); readSetup(); } // 開始頁那一組和這裡是同一個設定；這一盤不變，下一盤才用
     else if (k === 'noChase') readSetup(); // 禁止長捉：這一盤不變，下一盤才用（開始頁的規則說明跟著）
+    else if (k === 'sound') SND.setEnabled(v === 'on');
   }
   function onSettingInput(e) {
     var el = e.target, v = el.value;
@@ -2208,13 +2306,18 @@
     renderProfileBtn();
     if (G.page === 'records') renderRecords();
     if (G.page === 'profiles') renderProfiles();
+    if (G.page === 'replay') window.BanqiReplay.render();
   }
 
   function init() {
     G.set = readSettings();
+    SND.setEnabled(G.set.sound === 'on');
     GS.initProfiles(t('profile.defaultName')); // 第一次開：建預設帳號（名字用現在的語言）
     GS.profileList().forEach(function (p) { GS.achSync(p.id); }); // 成就：照現有的紀錄回推（開新版第一次開頁、別的視窗下完的盤），不出結算卡那一行
     G.colMode = G.set.colDefault;
+    // 棋局回放（replay.js）：換頁、時間與等級的寫法、返回紀錄頁由這裡給
+    window.BanqiReplay.init({ showPage: showPage, back: closeReplay, whenText: whenText, levelName: levelName, timeOf: GS.timeOf,
+      colMode: function () { return G.colMode; } });
     applyLook();
     if (MQ) {
       var onScheme = function () { if (G.set.scheme === 'auto') applyLook(); };
@@ -2280,6 +2383,9 @@
     $('recBack').addEventListener('click', function () { showPage('start'); $('recordsBtn').focus(); });
     $('profBack').addEventListener('click', function () { closeProfForm(); showPage('start'); $('profileBtn').focus(); });
     document.querySelectorAll('input[name="recMode"]').forEach(function (el) { el.addEventListener('change', renderRecords); });
+    $('exportBtn').addEventListener('click', exportBackup);
+    $('importBtn').addEventListener('click', function () { $('importFile').value = ''; $('importFile').click(); });
+    $('importFile').addEventListener('change', function () { var f = this.files && this.files[0]; if (f) importFile(f); });
     $('profAdd').addEventListener('click', function () { openProfForm(''); });
     $('profCancel').addEventListener('click', function () { closeProfForm(); $('profAdd').focus(); });
     $('profForm').addEventListener('submit', function (e) {
@@ -2312,6 +2418,10 @@
       remeasureBars: remeasureBars,
       render: render,
       DEFAULTS: DEFAULTS,
+      SND: SND,
+      dangerSquares: dangerSquares,
+      // 匯出／匯入：最後一次匯出的 { name, text }、匯入一段文字（跟選檔案一樣跑完、出那一句）
+      lastExport: function () { return lastExport; }, exportBackup: exportBackup, importText: function (text) { return importDone(GS.importText(text)); }, importMsg: importMsg,
       // 神將（第 7 級）：開場字卡的狀態、書法字寫到哪一幀、跳過
       sjInk: sjInk, finishCard: function () { finishCard('timer'); }, CARD_MS: CARD_MS, endGame: endGame, // endGame：測試假裝電腦認輸（打贏神將的結算卡）
       cardState: function () { var c = $('sjCard'); return { card: !!G.card, hidden: c.hidden, run: c.classList.contains('run'), en: c.classList.contains('en'), n: G.cardN || 0,

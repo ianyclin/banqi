@@ -15,11 +15,18 @@
  *   plies 步數（引擎的 ply）、drawPlies 這盤的平手步數。
  *   計分的盤（跟電腦下、認得的等級）另有 elo: { before, after, delta, opp }（賽前、賽後積分、加減、電腦的積分）；
  *   接著下時按「不要了」算輸的盤：reason 'resign'＋abandon: true（reason 不另開新值：舊版的 validGame 會把不認得的 reason 丟掉）。
+ * 棋譜 banqi.recs.v1（棋局回放，2026-10-25）：{ v: 1, recs: { '<ts>': { pid, at, me, text, af? } } }，每盤下完存一份整盤的棋譜（引擎的 encodeRecord，
+ *   含開局排法；下完了才存，所以蓋著的子看得到）。每個帳號只留最近 50 盤的棋譜（照 at），更早的盤紀錄照留、棋譜丟掉。
+ *   me＝這個帳號是引擎的哪一位（0 先手／1 後手；兩人同機＝下方玩家）；af＝這一盤的 achFacts（存的時候算一次，回推成就不必每次重播）。
+ *   不放進 banqi.games.v1 的理由：一盤的棋譜約 1–4 KB（紀錄一筆約 0.2 KB），放進去整串紀錄會大十倍以上，每次 loadGames 都要讀；
+ *   v0.1.8 以前的 stats.js 不認得這個鍵、不會動它（放在紀錄裡的話：它的 validGame 只篩不重建，load／save 留得住；但它記同一個 ts 時 upsert 整筆換掉，欄位就沒了）；
+ *   存滿（QuotaExceededError）時先丟最舊的棋譜，紀錄與帳號永遠比棋譜優先（writeJSON）。不認得的欄位（之後的版本加的）照樣留著。
+ * 匯出／匯入（2026-10-25）：exportText／importText，備份檔的樣子與合併規則見下面「匯出、匯入」那一段與 README「匯出／匯入」。
  * 這裡全是純函式＋localStorage 的讀寫，不碰 DOM。
  */
 (function (root) {
   'use strict';
-  var PKEY = 'banqi.profiles.v1', GKEY = 'banqi.games.v1';
+  var PKEY = 'banqi.profiles.v1', GKEY = 'banqi.games.v1', RKEY = 'banqi.recs.v1', MAX_RECS = 50;
   var MAX_PROFILES = 8, MAX_GAMES = 500, NAME_MAX = 12;
   var MODES = ['classic', 'chain'], LEVELS = [1, 2, 3, 4, 5, 6, 7]; // ＝ ai.js 的 LEVELS 的 id（test.js 核對）
   var REASONS = ['noPieces', 'noMoves', 'resign', 'drawPlies', 'repetition'];
@@ -27,8 +34,14 @@
   function readJSON(key, dflt) {
     try { var v = JSON.parse(localStorage.getItem(key) || 'null'); return v === null ? dflt : v; } catch (e) { return dflt; }
   }
+  // 存滿（QuotaExceededError）時：紀錄與帳號優先——先丟最舊的一份棋譜（banqi.recs.v1）再存一次，丟到存得下或棋譜丟光為止
   function writeJSON(key, v) {
-    try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch (e) { return false; }
+    var s = JSON.stringify(v);
+    for (;;) {
+      try { localStorage.setItem(key, s); return true; } catch (e) {
+        if (key === RKEY || !isQuota(e) || !shedRec()) return false;
+      }
+    }
   }
   function newId() { return 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
   function cleanName(s, fallback) {
@@ -65,16 +78,17 @@
   }
   // 讀帳號：認得的欄位（id、name、created、rating、achievements）照規則清；不認得的欄位（之後的版本加的）原樣留著——
   // v0.1.7 以前的這支只留認得的欄位，舊版的分頁一寫回去，新版加的欄位就沒了（v0.1.7 對 achievements 就是這樣，已經改不了）
+  function cleanProfile(p) {
+    var q = { id: p.id, name: cleanName(p.name, '?'), created: typeof p.created === 'number' ? p.created : 0 }, rt = cleanRating(p.rating), ac = cleanAchievements(p.achievements);
+    Object.keys(p).forEach(function (k) { if (!Object.prototype.hasOwnProperty.call(q, k) && k !== 'rating' && k !== 'achievements' && k !== '__proto__') q[k] = p[k]; });
+    if (rt) q.rating = rt;
+    if (ac) q.achievements = ac;
+    return q;
+  }
   function readProfiles() {
     var st = readJSON(PKEY, null);
     if (!st || typeof st !== 'object' || Array.isArray(st) || !Array.isArray(st.list)) return null;
-    st.list = st.list.filter(validProfile).map(function (p) {
-      var q = { id: p.id, name: cleanName(p.name, '?'), created: typeof p.created === 'number' ? p.created : 0 }, rt = cleanRating(p.rating), ac = cleanAchievements(p.achievements);
-      Object.keys(p).forEach(function (k) { if (!Object.prototype.hasOwnProperty.call(q, k) && k !== 'rating' && k !== 'achievements' && k !== '__proto__') q[k] = p[k]; });
-      if (rt) q.rating = rt;
-      if (ac) q.achievements = ac;
-      return q;
-    });
+    st.list = st.list.filter(validProfile).map(cleanProfile);
     if (!st.list.length) return null;
     if (!st.list.some(function (p) { return p.id === st.current; })) st.current = st.list[0].id;
     if (!st.list.some(function (p) { return p.id === st.defaultId; })) st.defaultId = st.list[0].id;
@@ -132,11 +146,12 @@
     });
     return hit && writeJSON(PKEY, st);
   }
-  // 刪帳號：連同他的紀錄（積分在帳號上，跟著帳號一起沒了）。最後一個不能刪
+  // 刪帳號：連同他的紀錄與棋譜（積分在帳號上，跟著帳號一起沒了）。最後一個不能刪
   function deleteProfile(id) {
     var st = readProfiles();
     if (!st || st.list.length <= 1 || !st.list.some(function (p) { return p.id === id; })) return false;
     saveGames(loadGames().filter(function (g) { return g.pid !== id; }));
+    dropRecsOf(id);
     st.list = st.list.filter(function (p) { return p.id !== id; });
     if (st.current === id) st.current = st.list[0].id;
     if (st.defaultId === id) st.defaultId = st.list[0].id;
@@ -157,10 +172,13 @@
     var a = readJSON(GKEY, []);
     return Array.isArray(a) ? a.filter(validGame) : [];
   }
-  function saveGames(list) {
+  // 照時間排好、只留最近 MAX_GAMES 盤（最舊的先丟）
+  function capGames(list) {
     list.sort(function (a, b) { return timeOf(a) - timeOf(b) || a.ts - b.ts; });
-    if (list.length > MAX_GAMES) list = list.slice(list.length - MAX_GAMES);
-    return writeJSON(GKEY, list);
+    return list.length > MAX_GAMES ? list.slice(list.length - MAX_GAMES) : list;
+  }
+  function saveGames(list) {
+    return writeJSON(GKEY, capGames(list));
   }
   // 同一盤（同一個 ts）再記一次就取代
   function upsert(rec) {
@@ -175,6 +193,91 @@
     return null;
   }
   function loadFor(pid) { return loadGames().filter(function (g) { return g.pid === pid; }); }
+
+  // ---------------------------------------------------------- 棋譜（棋局回放，2026-10-25；存法見檔頭）
+  function isQuota(e) {
+    return !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
+  }
+  function validRec(r) {
+    return !!r && typeof r === 'object' && !Array.isArray(r) && typeof r.text === 'string' && r.text !== '' && typeof r.pid === 'string' &&
+      typeof r.at === 'number' && isFinite(r.at) && (r.me === 0 || r.me === 1);
+  }
+  // 讀棋譜：不對的那一份丟掉；認得的與不認得的欄位（之後的版本加的）都原樣留著
+  function readRecStore() {
+    var st = readJSON(RKEY, null);
+    if (!st || typeof st !== 'object' || Array.isArray(st)) st = { v: 1, recs: {} };
+    if (!st.recs || typeof st.recs !== 'object' || Array.isArray(st.recs)) st.recs = {};
+    Object.keys(st.recs).forEach(function (k) { if (!validRec(st.recs[k])) delete st.recs[k]; });
+    st.v = 1;
+    return st;
+  }
+  function oldestFirst(st) {
+    return Object.keys(st.recs).sort(function (a, b) { return st.recs[a].at - st.recs[b].at || Number(a) - Number(b); });
+  }
+  // 存棋譜：存滿時先丟最舊的一份再存，丟到存得下為止（最後可能連這一盤的也丟掉）。keep＝這次要存的那一盤的 ts：回傳它有沒有存到
+  function putRecs(st, keep) {
+    for (;;) {
+      try { localStorage.setItem(RKEY, JSON.stringify(st)); return keep == null || Object.prototype.hasOwnProperty.call(st.recs, String(keep)); } catch (e) {
+        if (!isQuota(e)) return false;
+        var ks = oldestFirst(st);
+        if (!ks.length) return false;
+        delete st.recs[ks[0]];
+      }
+    }
+  }
+  // 存滿時給紀錄與帳號讓位置：丟最舊的一份棋譜。回傳有沒有讓出位置（沒有棋譜可以丟＝false）
+  function shedRec() {
+    var raw = null;
+    try { raw = localStorage.getItem(RKEY); } catch (e) { raw = null; }
+    if (raw === null) return false;
+    var st = readRecStore(), ks = oldestFirst(st);
+    if (ks.length) delete st.recs[ks[0]];
+    try {
+      if (ks.length > 1) localStorage.setItem(RKEY, JSON.stringify(st));
+      else localStorage.removeItem(RKEY);
+    } catch (e) { try { localStorage.removeItem(RKEY); } catch (e2) { return false; } }
+    return true;
+  }
+  // 每個帳號只留最近 MAX_RECS 盤（照 at）；紀錄裡已經沒有那一盤（或帳號對不上，例如舊版刪了帳號）的棋譜丟掉
+  // games＝拿來對的紀錄（省略＝存著的；匯入時是合併好、還沒寫進去的那一份）
+  function pruneRecs(st, games) {
+    var owner = {}, byPid = {};
+    (games || loadGames()).forEach(function (g) { owner[String(g.ts)] = g.pid; });
+    Object.keys(st.recs).forEach(function (k) {
+      var r = st.recs[k];
+      if (owner[k] !== r.pid) { delete st.recs[k]; return; }
+      (byPid[r.pid] = byPid[r.pid] || []).push(k);
+    });
+    Object.keys(byPid).forEach(function (pid) {
+      byPid[pid].sort(function (a, b) { return st.recs[b].at - st.recs[a].at || Number(b) - Number(a); })
+        .slice(MAX_RECS).forEach(function (k) { delete st.recs[k]; });
+    });
+  }
+  // 這一盤下完：存整盤的棋譜（g＝已經記好的紀錄；text＝引擎的 encodeRecord；me＝這個帳號是哪一位）。同一個 ts 再存就取代。回傳有沒有存到
+  function saveRec(g, text, me) {
+    if (!validGame(g) || typeof text !== 'string' || !text || (me !== 0 && me !== 1)) return false;
+    var st = readRecStore(), ent = { pid: g.pid, at: timeOf(g), me: me, text: text }, af = achFacts(text, me);
+    if (af) ent.af = af;
+    st.recs[String(g.ts)] = ent;
+    pruneRecs(st);
+    return putRecs(st, g.ts);
+  }
+  // 一盤的棋譜：{ ts, pid, at, me, text } 或 null
+  function recOf(ts) {
+    var r = readRecStore().recs[String(ts)];
+    return r ? { ts: Number(ts), pid: r.pid, at: r.at, me: r.me, text: r.text } : null;
+  }
+  // 這個帳號有棋譜的盤：{ ts: true }（紀錄頁一次讀完）
+  function recSet(pid) {
+    var st = readRecStore(), out = {};
+    Object.keys(st.recs).forEach(function (k) { if (st.recs[k].pid === pid) out[k] = true; });
+    return out;
+  }
+  function dropRecsOf(pid) {
+    var st = readRecStore(), n = 0;
+    Object.keys(st.recs).forEach(function (k) { if (st.recs[k].pid === pid) { delete st.recs[k]; n++; } });
+    if (n) putRecs(st, null);
+  }
 
   // 統計：每種玩法一份；opp 一列一個（電腦 1–7、不認得的等級合成一列 other、兩人同機），每列 n／w／d／l；結束原因每一種的 w／d／l
   function summary(list) {
@@ -214,7 +317,8 @@
   // 兩種來源：
   //   1. 對局紀錄（banqi.games.v1）＋帳號的積分：achDerive。紀錄裡有的就回推得出來（開新版第一次開頁時靜靜補，日期用那一盤的）。
   //   2. 這一盤的每一步（棋譜）：achFacts＋achFromFacts（連吃幾子、誰吃了帥、落後過幾子、被吃幾子）。
-  //      紀錄裡沒有存棋譜，所以這幾個（chain_3、chain_5、pawn_king、cannon_king、comeback、flawless）回推不了，從這一版開始下的盤才算。
+  //      紀錄裡沒有存棋譜，所以這幾個（chain_3、chain_5、pawn_king、cannon_king、comeback、flawless）原本回推不了，從成就那一版開始下的盤才算；
+  //      棋局回放那一批起每盤另外存棋譜（banqi.recs.v1，最近 50 盤），有棋譜的盤也回推得出來（achFromRecs）。
   var ACH = ['first_game', 'first_win', 'games_100', 'chain_3', 'chain_5', 'pawn_king', 'cannon_king', 'no_moves', 'comeback', 'flawless',
     'beat_l6', 'beat_l7', 'tianpeng', 'all_levels', 'streak_3', 'badge_gold', 'badge_master', 'pvp'];
   var ACH_FLOOR = Date.UTC(2020, 0, 1);
@@ -326,6 +430,29 @@
     return out;
   }
 
+  // 要每一步的成就（achFacts）從存著的棋譜回推（棋局回放那一批起，每盤存棋譜；只有最近 50 盤有）：{ 成就 id: 那一盤的時間 }，日期取最早成立的那一盤。
+  // 這幾個都已經解鎖了就不讀。每一份棋譜的 achFacts 存在 af（存的時候算好）；沒有或不對的才重播，算完寫回去（寫不進去就算了，下次再算）
+  var ACH_FACTS = ['chain_3', 'chain_5', 'pawn_king', 'cannon_king', 'comeback', 'flawless'];
+  function validFacts(f) {
+    return !!f && typeof f === 'object' && typeof f.chain === 'number' && typeof f.trail === 'number' && typeof f.lost === 'number' &&
+      typeof f.pawnKing === 'boolean' && typeof f.cannonKing === 'boolean';
+  }
+  function achFromRecs(list, pid, got) {
+    got = got || {};
+    var out = {};
+    if (ACH_FACTS.every(function (id) { return got[id]; })) return out;
+    var st = readRecStore(), fixed = false;
+    (list || []).filter(function (g) { return validGame(g) && g.pid === pid && g.opp === 'ai'; }).sort(byTime).forEach(function (g) {
+      var r = st.recs[String(g.ts)];
+      if (!r || r.pid !== pid) return;
+      var f = validFacts(r.af) ? r.af : null;
+      if (!f) { f = achFacts(r.text, r.me); if (!f) return; r.af = f; fixed = true; }
+      achFromFacts(g, f).forEach(function (id) { if (!(id in out)) out[id] = timeOf(g); });
+    });
+    if (fixed) { try { localStorage.setItem(RKEY, JSON.stringify(st)); } catch (e) { /* 存不下就算了 */ } }
+    return out;
+  }
+
   // 照現在的紀錄（＋這一盤的 extra：{ 成就 id: 時間 }）補上新成立的成就，寫回帳號；回傳這次新加的 id（照 ACH 的順序）。
   // 已經有的不動（不會重複解鎖、日期不改）；拿到的不會拿掉（紀錄被刪、超過 500 盤丟掉也一樣）。
   function achSync(pid, extra, now) {
@@ -335,7 +462,8 @@
     var p = null;
     st.list.forEach(function (x) { if (x.id === pid) p = x; });
     if (!p) return [];
-    var d = achDerive(loadFor(pid), p, { now: now });
+    var mine = loadFor(pid), d = achDerive(mine, p, { now: now }), rx = achFromRecs(mine, pid, p.achievements);
+    Object.keys(rx).forEach(function (id) { if (!(id in d)) d[id] = rx[id]; });
     Object.keys(extra || {}).forEach(function (id) { if (!(id in d)) d[id] = extra[id]; });
     var got = p.achievements || {}, fresh = [];
     ACH.forEach(function (id) {
@@ -352,8 +480,113 @@
     return ACH.map(function (id) { return { id: id, at: got[id] || null }; });
   }
 
+  // ---------------------------------------------------------- 匯出、匯入（2026-10-25；照五子棋 stats.js 的 exportText／importText 改的，不共用程式）
+  // 備份檔：{ app: 'banqi', format: 1, exported ISO 時間, version 網頁的版本號, profiles 帳號清單（含積分、成就、不認得的欄位）,
+  //   games 全部的紀錄, recs 全部的棋譜（banqi.recs.v1 的 recs：{ '<ts>': { pid, at, me, text, af? } }） }。設定、接著下的存檔不帶。
+  var BACKUP_FORMAT = 1;
+  function exportData(version, now) {
+    var st = readProfiles();
+    return { app: 'banqi', format: BACKUP_FORMAT, exported: new Date(typeof now === 'number' ? now : Date.now()).toISOString(),
+      version: typeof version === 'string' ? version : '', profiles: st ? st.list : [], games: loadGames(), recs: readRecStore().recs };
+  }
+  function exportText(version, now) { return JSON.stringify(exportData(version, now)); }
+  function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  // 同一個帳號兩邊都有：一種玩法的積分取計分盤數多的那一份；一樣多取最高分高的（最高＝這一邊紀錄裡計分過的盤的最高，至少是現在的分數）；再一樣取本機的
+  function pickRating(a, b, gamesA, gamesB, mode) {
+    if (!a) return b;
+    if (!b || a.games > b.games) return a;
+    if (b.games > a.games) return b;
+    var pa = peak(gamesA, mode), pb = peak(gamesB, mode);
+    pa = pa === null ? a.r : Math.max(a.r, pa); pb = pb === null ? b.r : Math.max(b.r, pb);
+    return pb > pa ? b : a;
+  }
+  // 匯入（合併，不刪本機的任何東西）。text＝備份檔的內容。回傳
+  //   { ok: false, error: 'bad'（不是暗棋的備份檔、讀不了）| 'newer'（新版的備份格式）| 'quota'（存不下）| 'save'（別的原因寫不進去）}：本機的資料一點都沒動；
+  //   { ok: true, profiles 新加的帳號數, merged 合併到本機已有帳號的數, games 新加的紀錄, recs 新加的棋譜,
+  //     skipProfiles [超過 8 個帳號沒加的名字], dup 本機已經有的盤, bad 看不懂的紀錄, orphan 帳號沒匯入的盤, cap 超過 500 盤丟掉的較舊的盤 }。
+  // 帳號：同一個 id＝同一個帳號——名字、建立時間照本機；積分每種玩法照 pickRating；成就取聯集、同一個取早的時間；本機沒有的欄位（之後的版本加的）補上。
+  //   本機沒有的帳號照檔案的順序加，加到 8 個為止。
+  // 紀錄：同一個 ts 只留一筆（本機有的照本機）；合併後照時間只留最近 500 盤。棋譜：同一個 ts 本機有的照本機；紀錄裡沒有的盤丟掉、每個帳號只留最近 50 盤。
+  // 先在記憶體裡合併好，三個鍵都寫成功才算數；寫到一半存不下（或任何一個寫不進去）就把三個鍵都放回原樣。寫完每個帳號靜靜補一次成就（achSync）。
+  function importText(text, now) {
+    now = typeof now === 'number' ? now : Date.now();
+    var data;
+    try { data = JSON.parse(String(text)); } catch (e) { return { ok: false, error: 'bad' }; }
+    if (!data || typeof data !== 'object' || Array.isArray(data) || data.app !== 'banqi') return { ok: false, error: 'bad' };
+    if (typeof data.format === 'number' && data.format % 1 === 0 && data.format > BACKUP_FORMAT) return { ok: false, error: 'newer' };
+    if (data.format !== BACKUP_FORMAT || !Array.isArray(data.profiles) || !Array.isArray(data.games) ||
+      (data.recs != null && (typeof data.recs !== 'object' || Array.isArray(data.recs)))) return { ok: false, error: 'bad' };
+    var raw = {};
+    [PKEY, GKEY, RKEY].forEach(function (k) { try { raw[k] = localStorage.getItem(k); } catch (e) { raw[k] = null; } });
+    var st = readProfiles() || { v: 1, current: null, defaultId: null, list: [] };
+    var local = loadGames(), inGames = data.games.filter(validGame);
+    var res = { ok: true, profiles: 0, merged: 0, games: 0, recs: 0, skipProfiles: [], dup: 0, bad: data.games.length - inGames.length, orphan: 0, cap: 0 };
+    var byId = {};
+    st.list.forEach(function (p) { byId[p.id] = p; });
+    data.profiles.forEach(function (p0) {
+      if (!validProfile(p0)) return;
+      var p = cleanProfile(p0), q = byId[p.id];
+      if (!q) {
+        if (st.list.length >= MAX_PROFILES) { res.skipProfiles.push(p.name); return; }
+        st.list.push(p); byId[p.id] = p; res.profiles++;
+        return;
+      }
+      var mineG = local.filter(function (g) { return g.pid === q.id; }), theirG = inGames.filter(function (g) { return g.pid === q.id; });
+      if (p.rating) {
+        var rt = q.rating || {};
+        Object.keys(p.rating).forEach(function (m) { if (m !== '__proto__') rt[m] = pickRating(own(rt, m) ? rt[m] : null, p.rating[m], mineG, theirG, m); });
+        q.rating = rt;
+      }
+      if (p.achievements) {
+        var ac = q.achievements || {};
+        Object.keys(p.achievements).forEach(function (id) { if (id !== '__proto__' && (!own(ac, id) || p.achievements[id] < ac[id])) ac[id] = p.achievements[id]; });
+        q.achievements = ac;
+      }
+      Object.keys(p).forEach(function (k) { if (!own(q, k)) q[k] = p[k]; });
+      res.merged++;
+    });
+    if (!st.list.length) return { ok: false, error: 'bad' }; // 本機沒有帳號、檔案裡也沒有能用的帳號（實際上開頁就一定有一個）
+    if (!st.current || !byId[st.current]) st.current = st.list[0].id;
+    if (!st.defaultId || !byId[st.defaultId]) st.defaultId = st.list[0].id;
+    // 紀錄
+    var have = {}, fresh = {}, games = local.slice();
+    local.forEach(function (g) { have[g.ts] = true; });
+    inGames.forEach(function (g) {
+      if (!byId[g.pid]) { res.orphan++; return; }
+      if (have[g.ts]) { res.dup++; return; }
+      have[g.ts] = true; fresh[g.ts] = true;
+      games.push(g);
+    });
+    var before = games.length;
+    games = capGames(games);
+    res.cap = before - games.length;
+    games.forEach(function (g) { if (fresh[g.ts]) res.games++; });
+    // 棋譜
+    var rs = readRecStore(), inRecs = data.recs || {}, freshR = {};
+    Object.keys(inRecs).forEach(function (k) {
+      if (!/^\d+$/.test(k) || own(rs.recs, k) || !validRec(inRecs[k])) return;
+      rs.recs[k] = inRecs[k]; freshR[k] = true;
+    });
+    pruneRecs(rs, games);
+    Object.keys(rs.recs).forEach(function (k) { if (freshR[k]) res.recs++; });
+    // 寫：三個都成功才算數
+    try {
+      localStorage.setItem(GKEY, JSON.stringify(games));
+      localStorage.setItem(RKEY, JSON.stringify(rs));
+      localStorage.setItem(PKEY, JSON.stringify(st));
+    } catch (e) {
+      [PKEY, GKEY, RKEY].forEach(function (k) {
+        try { if (raw[k] === null) localStorage.removeItem(k); else localStorage.setItem(k, raw[k]); } catch (e2) { /* 原本就放得下的值，放回去不會更大 */ }
+      });
+      return { ok: false, error: isQuota(e) ? 'quota' : 'save' };
+    }
+    st.list.forEach(function (p) { achSync(p.id, null, now); });
+    return res;
+  }
+
   root.BanqiStats = {
-    PKEY: PKEY, GKEY: GKEY, MAX_PROFILES: MAX_PROFILES, NAME_MAX: NAME_MAX, MODES: MODES, LEVELS: LEVELS, REASONS: REASONS,
+    exportData: exportData, exportText: exportText, importText: importText, BACKUP_FORMAT: BACKUP_FORMAT, MAX_GAMES: MAX_GAMES,
+    PKEY: PKEY, GKEY: GKEY, RKEY: RKEY, MAX_RECS: MAX_RECS, saveRec: saveRec, recOf: recOf, recSet: recSet, MAX_PROFILES: MAX_PROFILES, NAME_MAX: NAME_MAX, MODES: MODES, LEVELS: LEVELS, REASONS: REASONS,
     initProfiles: initProfiles, profileList: profileList, profile: profile, current: current, setCurrent: setCurrent,
     addProfile: addProfile, renameProfile: renameProfile, deleteProfile: deleteProfile, setRating: setRating,
     loadGames: loadGames, loadFor: loadFor, upsert: upsert, find: find, validGame: validGame, validLevel: validLevel,

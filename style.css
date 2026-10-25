@@ -33,6 +33,7 @@
   --ink: #2a2018;
   --ink-2: #6b5a48;
   --line: #dccdb4;
+  --btn-line: #8c7b67; /* 次要鈕與圖示鈕的框（WCAG 1.4.11）：對 --bg 3.53、--surface 3.82、--surface-opp 3.55、--tint 3.20 */
   --pri: #2f5b46;
   --on-pri: #fff;
   --accent: #5c3a1e;
@@ -88,6 +89,7 @@
   --ink: #efe6d8;
   --ink-2: #bfae97;
   --line: #40372c;
+  --btn-line: #827564; /* 對 --bg 3.93、--surface 3.60、--surface-opp 3.59、--tint 3.23 */
   --pri: #8cc7a6;
   --on-pri: #13201a;
   --accent: #d6a878;
@@ -172,6 +174,7 @@
   --ink: #efe4cf;
   --ink-2: #a8977c;
   --line: #3a2c24;
+  --btn-line: #7a6a57; /* 對 --bg 3.76、--surface 3.52、--surface-opp 3.50、--tint 3.20 */
   --pri: #a8301f;
   --on-pri: #fbefd9;
   --accent: #d9b770;
@@ -200,6 +203,7 @@
   --ink: #1d1714;
   --ink-2: #665846;
   --line: #d3c7b3;
+  --btn-line: #837663; /* 對 --bg 3.54、--surface 4.01、--surface-opp 3.82、--tint 3.22 */
   --pri: #a3291b;
   --on-pri: #fbefd9;
   --accent: #7a5a20;
@@ -260,7 +264,9 @@ button.good { background: var(--pri); color: var(--on-pri); }
 /* ---------- 次要按鈕與圖示鈕（作者 2026-10-25：全站統一，一套樣式只寫在這裡） ----------
    兩種，主要按鈕（開始、再來一盤、綠色填滿的、.seg 的選項、停在這裡）不在這裡：
    1. 文字次要鈕＝button.link（語言、紀錄、返回、認輸、幫我挑對手）、button.secondary（看整盤排列、回首頁、取消、改名、刪除、加帳號、對話框的次要鈕）、
-      button.chip（帳號鈕）：看得到的是 32px 高的藥丸（::after：1px --line 框、--surface 底、沒有陰影），13px、600 粗、--ink-2 色
+      button.chip（帳號鈕）：看得到的是 32px 高的藥丸（::after：1px --btn-line 框、--surface 底、沒有陰影），13px、600 粗、--ink-2 色
+      框用 --btn-line、不用 --line（2026-10-25）：--line 對 --surface 只有 1.37–1.51，按鈕的邊界看不出來；--btn-line 對按鈕自己的底（--surface、滑鼠移上去的 --tint）
+      和後面的底（--bg、--surface、--surface-opp）四種主題都 ≥ 3（WCAG 1.4.11）。卡片、分隔線照舊用 --line
    2. 圖示鈕＝button.icon-btn（齒輪、眼睛）：看得到的是 36px 的圓（::after，框、底、陰影都跟文字鈕一樣）
    點的範圍＝按鈕本身，至少 44×44、透明；看得到的形狀畫在 ::after（isolation 讓它在字的後面）。
    狀態兩種一樣：滑鼠移上去形狀填 --tint、按下去變淡、鍵盤焦點的外框畫在看得到的形狀上。
@@ -272,7 +278,7 @@ button.link, button.secondary, button.chip, button.icon-btn {
 button.link, button.secondary, button.chip { padding: 0 var(--b2-px); font-size: var(--fs-small); font-weight: 600; line-height: 1.2; white-space: nowrap; }
 button.link::after, button.secondary::after, button.chip::after, button.icon-btn::after {
   content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: calc(50% - var(--b2-h) / 2); height: var(--b2-h); box-sizing: border-box;
-  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); pointer-events: none; }
+  border: 1px solid var(--btn-line); border-radius: 999px; background: var(--surface); pointer-events: none; }
 button.icon-btn::after { left: calc(50% - var(--ib-d) / 2); right: auto; width: var(--ib-d); top: calc(50% - var(--ib-d) / 2); height: var(--ib-d); }
 @media (hover: hover) {
   button.link:not(:disabled):hover::after, button.secondary:not(:disabled):hover::after, button.chip:hover::after, button.icon-btn:hover::after { background: var(--tint); }
@@ -408,6 +414,14 @@ button.stop { flex: none; min-height: 0; height: calc(var(--status-h) - 6px); pa
 .cell.t-cap .mk .u, .cell.t-cap .mk .cap, .cell.t-atk .mk .u, .cell.t-atk .mk .atk, .cell.t-move .mk .mv, .cell.last .mk .lst, .cell.path .mk .lst { display: inline; }
 /* 炮台：點點圈 */
 .cell.screen .pc::before { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px dotted var(--screen); z-index: 1; pointer-events: none; }
+/* 危險提醒（作者 2026-10-25）：輪到你時，下一步可能被吃的子底下一圈橘色（細深邊＋淡淡的光），畫在格子上、子的原位，
+   選中時子浮起來，這一圈留在底下還看得到。顏色四種主題各一組：--dg-ring 圈、--dg-edge 圈兩側的細邊（對子面與盤面拉開對比）、--dg-glow 外面的光 */
+:root { --dg-ring: #c85a12; --dg-edge: #3a1a06; --dg-glow: rgba(214, 110, 30, .38); }
+:root[data-theme="wood"][data-scheme="dark"] { --dg-ring: #f08c2e; --dg-edge: #1a0d04; --dg-glow: rgba(240, 140, 46, .4); }
+:root[data-theme="lacquer"][data-scheme="dark"] { --dg-ring: #f0883a; --dg-edge: #120605; --dg-glow: rgba(240, 136, 58, .42); }
+:root[data-theme="lacquer"][data-scheme="light"] { --dg-ring: #f0883a; --dg-edge: #120605; --dg-glow: rgba(240, 136, 58, .42); }
+.cell.danger::after { content: ""; position: absolute; inset: calc(9% - 4px); border-radius: 50%; border: 2px solid var(--dg-ring); pointer-events: none; z-index: 0;
+  box-shadow: 0 0 0 1px var(--dg-edge), inset 0 0 0 1px var(--dg-edge), 0 0 8px 2px var(--dg-glow); }
 /* 終局攤開：原本蓋著的子淡一點、虛線圈 */
 .cell.peek .face { opacity: .62; }
 .cell.peek .pc::before { content: ""; position: absolute; inset: -2px; border-radius: 50%; border: 2px dashed var(--screen); z-index: 1; pointer-events: none; }
@@ -629,6 +643,10 @@ button.chip .chip-rt { flex: none; overflow: visible; font-weight: 600; color: v
 .rec-recent .rec-delta { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rec-recent .rec-delta.up { color: var(--accent); }
 .rec-recent .rec-delta.down, .rec-recent .rec-delta.same { color: var(--ink-2); }
+/* 紀錄頁最下面：匯出紀錄、匯入紀錄（2026-10-25）。兩顆一樣寬的次要鈕並排（跟結算卡的 .end-sub 同一種排法），放不下一列時第二顆換到下一列 */
+.rec-io { display: flex; flex-wrap: wrap; gap: 0 8px; margin-top: 8px; }
+.rec-io > button { flex: 1 1 0; min-width: max-content; }
+@media (max-height: 600px) { .rec-io { margin-top: 4px; } }
 
 /* ---------- 帳號頁 ---------- */
 .prof-list { list-style: none; margin: 0 0 12px; padding: 0; }
@@ -667,13 +685,12 @@ button.danger:disabled { opacity: .45; }
 /* 結算卡：這一盤新解鎖的成就（三個以內一個一行；做法同上面的積分那一行：矮的畫面併成一行）。攤開以後的結果條收起來（跟記到紀錄那一行一樣，卡上已經看過） */
 .end-ach { font-size: var(--fs-small); font-weight: 700; color: var(--accent); margin-top: -6px !important; line-height: 1.35 !important; overflow-wrap: anywhere; }
 .end-ach span { display: block; }
-/* 矮的畫面（手機橫放）：有成就那一行時卡放寬、三顆按鈕排成一列，整張卡才放得下（畫面是寬的） */
+/* 矮的畫面（手機橫放）：有成就那一行時卡放寬，成就併成的那一行才不會折成好幾行（畫面是寬的）。
+   按鈕照一般的排法（再來一盤一整列、底下兩顆次要藥丸一列），b01 的 BT 段量過 9 種尺寸加積分與成就都放得下 */
 @media (max-height: 480px) {
   .end-ach span { display: inline; }
   .end-ach span + span { margin-left: .5em; }
   .end-card.has-ach { max-width: 560px; }
-  .end-card.has-ach .end-btns { flex-direction: row; }
-  .end-card.has-ach .end-btns button { flex: 1; }
 }
 .end-overlay.revealed #endAch { display: none; }
 
@@ -709,6 +726,10 @@ body[data-page="settings"] .end-overlay, body[data-page="settings"] .toast { dis
 .end-card h2 { font-family: var(--font-title); font-weight: var(--title-wt); font-size: 1.75rem; margin: 0 0 8px; }
 .end-card p { margin: 0 0 12px; line-height: 1.5; }
 .end-btns { display: flex; flex-direction: column; gap: 8px; }
+/* 「看整盤排列」「回首頁」（作者 2026-10-25）：並排、一樣寬的次要藥丸（樣子見「次要按鈕與圖示鈕」）。
+   每一顆至少是自己的字寬（字不換行、不切），兩顆放不下一列時第二顆換到下一列、各佔一整列；上下兩列之間不加間距（點的範圍 44 已經隔開看得到的 32） */
+.end-sub { display: flex; flex-wrap: wrap; gap: 0 8px; }
+.end-sub > button { flex: 1 1 0; min-width: max-content; }
 /* 攤開以後：結果縮成底下一條，不擋棋盤 */
 .end-overlay.revealed { background: transparent; pointer-events: none; align-items: flex-end; }
 .end-overlay.revealed .end-card { pointer-events: auto; max-width: 520px; padding: 10px 12px; }
@@ -718,8 +739,9 @@ body[data-page="settings"] .end-overlay, body[data-page="settings"] .toast { dis
 .end-overlay.revealed .end-card #endRevealNote { margin-top: 4px; line-height: 1.35; }
 .end-overlay.revealed #revealBtn { display: none; }
 .end-overlay.revealed #endRecord { display: none; } /* 記到紀錄的那一行在結果卡上已經看過；縮成結果條時收起來（橫放的手機放不下） */
-.end-overlay.revealed .end-btns { flex-direction: row; }
-.end-overlay.revealed .end-btns button { flex: 1; }
+/* 結果條只剩「再來一盤」與「回首頁」：排成一列、一樣寬（疊成兩列會多吃 52px，棋盤就變小） */
+/* 用 grid 的兩個 1fr：flex 的 flex-basis 0 會把 padding 另外加上去，主要鈕（左右 16）就比裝次要鈕的那一格寬 */
+.end-overlay.revealed .end-btns { display: grid; grid-template-columns: 1fr 1fr; }
 /* 攤開以後結果條固定在底下；main 的下內距由 app.js 設成結果條的高度，棋盤照樣算在一個畫面裡。狀態列（含「停在這裡」）收起來，高度讓給棋盤 */
 body.end-revealed #statusRow { display: none; }
 
@@ -857,3 +879,30 @@ html[lang="en"] .end-card.sj-win h2 .sj-t { white-space: normal; letter-spacing:
 .end-overlay.revealed .end-card.sj-win h2 .sj-seal { margin-left: 6px; }
 
 @media (prefers-reduced-motion: reduce) { .sj-capbox::after { display: none; } }
+
+/* ---------- 棋局回放（2026-10-25；replay.js） ----------
+   紀錄頁「最近的盤」：有棋譜的那幾盤最後多一顆「回放」（文字次要鈕，樣子見「次要按鈕與圖示鈕」）；點的範圍 44 高，上下的負 margin 讓這一列不會因此變高太多。
+   回放頁跟對局頁一樣一個畫面放得下、不捲動（9 種尺寸）：標題列 → 這一盤 → 第幾步與這一步（固定兩行高，步數換了版面不跳）→ 棋盤與兩欄 → 控制列。
+   棋盤與兩欄是對局頁的同一套 class（.board-wrap／.board／.cell／.intel），主題照樣；格子大小 --cell 由 replay.js 的 layout 量剩下的高度算（只看不點，最小 20）。
+   控制列：⏮ ◀ 滑桿 ▶ ⏭（圖示鈕）一列、自動播放與「顯示蓋著的子」一列；寬的畫面（≥ 640）併成一列 */
+.rec-recent .rec-replay { flex: none; align-self: center; margin: -6px 0 -6px auto; }
+.rec-recent .rec-delta + .rec-replay { margin-left: 0; }
+body[data-page="replay"] main { max-width: 1100px; padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+#replay { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#replay > * { width: 100%; flex: none; }
+#replay .topbar { margin: 0; }
+.rp-meta { margin: 0; font-size: var(--fs-small); line-height: 1.35; color: var(--ink-2); text-align: center; overflow-wrap: anywhere; }
+.rp-move { margin: 0; height: 2.6em; font-size: .875rem; line-height: 1.3; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+#replay .cell { cursor: default; }
+.rp-ctl { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 12px; max-width: 720px; } /* 寬度不跟格子走：量格子的時候控制列的行數不能變 */
+.rp-steps { flex: 1 1 100%; min-width: 0; display: flex; align-items: center; }
+.rp-steps input[type="range"] { flex: 1 1 auto; min-width: 0; height: 44px; margin: 0 6px; accent-color: var(--pri); cursor: pointer; }
+.rp-opts { flex: none; display: flex; align-items: center; gap: 0 12px; }
+@media (min-width: 640px) { .rp-steps { flex: 1 1 280px; } }
+#replay button[aria-disabled="true"] { opacity: .4; cursor: default; }
+.rp-play { display: inline-flex; align-items: center; gap: 6px; }
+.rp-play .ic-pause, .rp-play[aria-pressed="true"] .ic-play { display: none; }
+.rp-play[aria-pressed="true"] .ic-pause { display: inline; }
+.rp-reveal { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: var(--fs-small); font-weight: 600; color: var(--ink-2); white-space: nowrap; cursor: pointer; }
+.rp-reveal input { width: 18px; height: 18px; margin: 0; accent-color: var(--pri); }

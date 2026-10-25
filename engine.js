@@ -306,6 +306,24 @@
     return out.filter(function (m) { return m.type !== 'move' || !isForbiddenStep(s, m.from, m.to); });
   }
 
+  // ------------------------------------------------------------ 危險提醒（畫面用，作者 2026-10-25 定）
+  // col 色（沒給＝輪到的那一位的顏色）的明子裡，對方「假如現在輪到他」第一下就吃得到的那些格子（由小到大）。
+  // 用的就是合法步的吃子產生（captureMovesFrom）：走步吃照子力（帥不吃兵、兵吃帥）、炮跳吃（緊鄰不算）；
+  // 連吃玩法也只算第一下；攻擊暗子不算（暗子是誰不知道），暗子本身也不會被標。只讀 board、colors、turn、mode，publicView 也能用。
+  function threatened(s, col) {
+    if (col === undefined) col = ownColor(s);
+    if (col !== 'r' && col !== 'b') return [];
+    var opp = otherColor(col), b = s.board, hit = {}, out = [], i;
+    function push(m) { if (m.type === 'capture') hit[m.to] = true; }
+    for (i = 0; i < N; i++) {
+      var a = b[i];
+      if (a === null || a === HIDDEN || colorOf(a) !== opp) continue;
+      captureMovesFrom(s, i, opp, push);
+    }
+    for (i = 0; i < N; i++) if (hit[i]) out.push(i);
+    return out;
+  }
+
   // ------------------------------------------------------------ 禁止長捉（規格 8.5）
   // 全部只看公開資訊：盤面、輪到誰、顏色、盤面紀錄 seen。每一手是不是「捉」由 seen 裡前後兩個盤面就算得出來
   // （同一段紀錄裡每一手都是走一格到空格，見 8.5.6），所以不另外存每一手的旗標。
@@ -806,7 +824,7 @@
     canStepCapture: canStepCapture,
     makeRng: makeRng, defaultRng: defaultRng, randInt: randInt, shuffle: shuffle,
     newGame: newGame, fromBoard: fromBoard, positionKey: positionKey, repetitionCount: repetitionCount, pliesUntilDraw: pliesUntilDraw,
-    legalMoves: legalMoves, forbiddenSteps: forbiddenSteps, isChase: isChase, isLegal: isLegal, applyMove: applyMove, applyResign: applyResign, result: result,
+    legalMoves: legalMoves, forbiddenSteps: forbiddenSteps, isChase: isChase, threatened: threatened, isLegal: isLegal, applyMove: applyMove, applyResign: applyResign, result: result,
     publicView: publicView, sampleHidden: sampleHidden,
     encodeRecord: encodeRecord, decodeRecord: decodeRecord
   };
