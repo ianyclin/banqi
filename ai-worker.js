@@ -10,7 +10,7 @@
 // 版本號：載入網址的 ?v=（app.js 用 vurl('ai-worker.js') 開）一路帶給 engine.js、ai.js；Blob 版（單一檔案）的網址是 blob:，VQ 是空字串
 var VQ = (/[?&]v=([^&#]*)/.exec(self.location.href) || [])[1];
 VQ = VQ ? '?v=' + VQ : '';
-var BANQI_WORKER_VERSION = 'v0.1.6'; // 發布時 release.py 改成和 BANQI_VERSION 一樣
+var BANQI_WORKER_VERSION = 'v0.1.7'; // 發布時 release.py 改成和 BANQI_VERSION 一樣
 if (typeof BanqiAI === 'undefined') importScripts('engine.js' + VQ, 'ai.js' + VQ);
 self.onmessage = function (e) {
   var d = e.data || {};

@@ -22,7 +22,7 @@
 <!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
 <link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
 <!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
-<script>var BANQI_VERSION = 'v0.1.6'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+<script>var BANQI_VERSION = 'v0.1.7'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
 function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
 document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
 </head>
@@ -56,9 +56,9 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
         <button type="button" id="setBtnStart" class="icon-btn gear" data-i18n-attr="aria-label:settings.open;title:settings.open"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
       </span>
     </div>
-    <!-- 帳號與紀錄（第二步 b-2）：現在用哪個帳號、看紀錄 -->
+    <!-- 帳號與紀錄（第二步 b-2）：現在用哪個帳號、看紀錄。帳號鈕後面是這個帳號在現在選的玩法的徽章與積分（rating.js；換玩法跟著換） -->
     <div class="start-acts">
-      <button type="button" id="profileBtn" class="chip"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.8 19.5c1.2-3.6 4-5.4 7.2-5.4s6 1.8 7.2 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span id="profileName"></span></button>
+      <button type="button" id="profileBtn" class="chip"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.8 19.5c1.2-3.6 4-5.4 7.2-5.4s6 1.8 7.2 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span id="profileName"></span><span id="profileRating" class="chip-rt"></span></button>
       <button type="button" id="recordsBtn" class="link" data-i18n="start.records"></button>
     </div>
     <div class="card">
@@ -80,10 +80,12 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
          底下是原生的 range（鍵盤左右／Home／End、讀屏念 aria-valuetext＝等級名）；手指與滑鼠由 app.js 自己接：
          只有橫著拖圓子、或點一格才會換，從滑桿上開始往上下滑照樣捲頁面 -->
     <div class="card" id="levelCard" hidden>
-      <h2 id="hLevel" data-i18n="start.level"></h2>
+      <!-- 標題那一列右邊「幫我挑對手」：照這個帳號在現在選的玩法的積分挑等級（rating.js 的 recommendLevel） -->
+      <div class="lvl-head"><h2 id="hLevel" data-i18n="start.level"></h2><button type="button" id="recBtn" class="link" data-i18n="start.recommend"></button></div>
       <p class="lvl-name" id="lvlName" aria-hidden="true"></p>
-      <!-- 選到神將（第 7 級）時大字底下的一行小字；其他等級時看不見但留著位置（換到神將時滑桿不會往下跳） -->
-      <p class="lvl-note off" id="lvlNote" data-i18n="start.sjNote"></p>
+      <!-- 大字底下一行小字「對手 N 分」（現在選的玩法）；選到神將（第 7 級）時後面接「· 每步推演百萬局面…」。
+           #lvlNoteGhost 是看不見的神將那一句（同一格疊在下面）：這一行的高度一直是神將那一句的高度（窄的畫面換成兩行也一樣），換等級時滑桿不會上下跳 -->
+      <p class="lvl-note" id="lvlNote"><span id="lvlNoteText"></span><span id="lvlNoteGhost" class="ghost" aria-hidden="true"></span></p>
       <div class="lvl" id="lvl">
         <div class="lvl-track" id="lvlTrack">
           <input type="range" id="lvlRange" class="lvl-range" min="1" max="1" step="1" value="1" aria-labelledby="hLevel">
@@ -311,6 +313,8 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
     <h2 id="endTitle"></h2>
     <p id="endReason"></p>
     <p id="endRevealNote" class="note" data-i18n="end.revealNote" hidden></p>
+    <!-- 計分的盤：積分的變化（第一行）、徽章換了（第二行） -->
+    <p id="endRating" class="end-rating" hidden></p>
     <p id="endRecord" class="note end-record" hidden></p>
     <div class="end-btns">
       <button type="button" id="revealBtn" class="secondary" data-i18n="end.reveal"></button>
@@ -337,7 +341,7 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
 <div id="safeProbe" aria-hidden="true"></div>
 <script>(function () { function f() { var p = document.getElementById('safeProbe'); document.documentElement.classList.toggle('has-safe-top', !!p && p.getBoundingClientRect().height > 0.5); } f(); addEventListener('resize', f); addEventListener('orientationchange', f); })();</script>
 <!-- 程式（照這個順序；都帶版本號）。ai.js：電腦對手平常在 Worker（ai-worker.js）裡算，這裡也載一份，Worker 開不了時在主執行緒算 -->
-<script>['engine.js', 'ai.js', 'stats.js', 'i18n.js', 'app.js'].forEach(function (f) { document.write('<script src="' + vurl(f) + '"><\/script>'); });</script>
+<script>['engine.js', 'ai.js', 'rating.js', 'stats.js', 'i18n.js', 'app.js'].forEach(function (f) { document.write('<script src="' + vurl(f) + '"><\/script>'); });</script>
 <!-- 離線（sw.js）：只在發布版註冊（tools/README-release.md 第 7 節第二組） -->
 <script>if (BANQI_RELEASE === true && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
 </body>

@@ -7,7 +7,7 @@
  */
 (function () {
   'use strict';
-  var E = window.BanqiEngine, I18N = window.I18N, t = I18N.t, AIX = window.BanqiAI, GS = window.BanqiStats;
+  var E = window.BanqiEngine, I18N = window.I18N, t = I18N.t, AIX = window.BanqiAI, GS = window.BanqiStats, RT = window.BanqiRating;
   function vurl(p) { return typeof window.vurl === 'function' ? window.vurl(p) : p; } // 帶版本號的網址（index.html 的 vurl；單一檔案版沒有就照舊）
   var TEST = window.BANQI_RELEASE !== true && /[?&]test=1(?:&|$)/.test(location.search);
   var HIDDEN = E.HIDDEN;
@@ -1022,6 +1022,24 @@
     }
     $('endReason').textContent = reason;
     var lr = G.lastRec, pr = lr ? GS.profile(lr.pid) : null;
+    // 計分的盤：「積分 1087 → 1103（+16）」；這一盤讓徽章換了再一行「升上 金」／「降到 銀」
+    var er = $('endRating'), el = lr && lr.elo;
+    er.hidden = !el;
+    er.textContent = '';
+    if (el) {
+      var main = document.createElement('span');
+      main.className = 'er-main';
+      main.textContent = t('end.rating', { from: el.before, to: el.after, d: signed(el.delta) });
+      er.appendChild(main);
+      var bc = G.lastBadge;
+      if (bc && bc.from !== bc.to) {
+        var up = RT.BADGES.map(function (b) { return b.key; }).indexOf(bc.to) > RT.BADGES.map(function (b) { return b.key; }).indexOf(bc.from);
+        var bl = document.createElement('span');
+        bl.className = 'er-badge ' + (up ? 'up' : 'down');
+        bl.textContent = t(up ? 'end.badgeUp' : 'end.badgeDown', { badge: badgeName(bc.to) });
+        er.appendChild(bl);
+      }
+    }
     $('endRecord').hidden = !lr;
     if (lr) $('endRecord').textContent = t('end.recorded', { name: pr ? pr.name : '', line: recLine(lr) });
     $('endRevealNote').hidden = !G.revealed;
@@ -1120,6 +1138,7 @@
       $('endOverlay').hidden = true;
       document.body.classList.remove('end-revealed');
       $('toast').hidden = true;
+      renderProfileBtn(); // 下完一盤回來：帳號鈕上的積分照新的
     }
     if (name !== 'game') document.querySelector('main').style.paddingBottom = '';
     window.scrollTo(0, 0);
@@ -1153,9 +1172,10 @@
   // ------------------------------------------------------------ 帳號（第二步 b-2；照五子棋的帳號頁：換、加、改名、刪除要確認）
   function me() { return GS.current() || GS.profileList()[0]; }
   function renderProfileBtn() {
-    var p = me();
+    var p = me(), mode = curMode(), r = ratingOf(p, mode);
     $('profileName').textContent = p ? p.name : '';
-    $('profileBtn').setAttribute('aria-label', t('profile.btnLabel', { name: p ? p.name : '' }));
+    $('profileRating').textContent = t('profile.rating', { badge: badgeName(r.badge), rating: r.r });
+    $('profileBtn').setAttribute('aria-label', t('profile.btnLabel', { name: p ? p.name : '', mode: t('mode.' + mode), badge: badgeName(r.badge), rating: r.r }));
   }
   var profEditing = null; // null＝沒在編；''＝新增；帳號 id＝改名
   function renderProfiles() {
@@ -1233,10 +1253,11 @@
     return t('records.line', {
       opp: g.opp === 'pvp' ? t('records.pvp') : t('records.oppAi', { level: levelName(g.level) }),
       color: g.color ? t(g.color === 'r' ? 'color.rSide' : 'color.bSide') : t('color.unknown'),
-      result: t('res.' + g.result), reason: t('reason.' + g.reason), n: g.plies
+      result: t('res.' + g.result), reason: t(g.abandon ? 'reason.abandon' : 'reason.' + g.reason), n: g.plies
     });
   }
   function recordGame(res) {
+    G.lastBadge = null;
     if (!G.gameTs || !G.pid) return null;
     var ex = GS.find(G.gameTs);
     if (ex && ex.at !== G.recAt) return null; // 同一盤在別的視窗已經記過
@@ -1245,16 +1266,38 @@
       color: G.state.colors[G.me] || null, result: res.winner === null ? 'draw' : res.winner === G.me ? 'win' : 'loss',
       reason: res.reason, plies: G.state.ply, drawPlies: G.state.drawPlies
     };
+    var x = settleRec(rec, ex);
     if (!GS.upsert(rec)) return null;
+    if (x) { GS.setRating(rec.pid, rec.mode, x.entry); G.lastBadge = { from: x.badgeBefore, to: x.entry.badge }; }
     G.recAt = rec.at;
     return rec;
   }
+  // 積分（rating.js）：每盤只在第一次結束時算一次（照五子棋：同一個 ts 先前的紀錄已經有 elo 就照抄、不再算）。
+  // 只有跟電腦下、認得的等級才算（兩人同機、之後的版本的等級＝rateGame 回 null）。算了就把 elo 放進 rec，回傳 rateGame 的結果（呼叫的人記好紀錄再寫回帳號）
+  function settleRec(rec, prev) {
+    if (prev && prev.elo) { rec.elo = prev.elo; return null; }
+    var p = GS.profile(rec.pid);
+    if (!p || !RT) return null;
+    var x = RT.rateGame(RT.entry(p.rating, rec.mode), rec);
+    if (x) rec.elo = x.elo;
+    return x;
+  }
+  // 積分的加減寫法：+16、−16、±0
+  function signed(d) { return d > 0 ? '+' + d : d < 0 ? '\u2212' + (-d) : '\u00b10'; }
+  function badgeName(key) { return t('badge.' + key); }
+  // 開始頁現在選的玩法（帳號鈕、等級底下那一行、幫我挑對手都看它）
+  function curMode() { var el = document.querySelector('input[name="mode"]:checked'); return el && el.value === 'chain' ? 'chain' : 'classic'; }
+  function ratingOf(p, mode) { return RT.entry(p && p.rating, mode); }
   function cellEl(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function renderRecords() {
     var p = me(), mode = (document.querySelector('input[name="recMode"]:checked') || {}).value || 'classic';
     $('recWho').textContent = t('records.of', { name: p.name });
     var list = GS.loadFor(p.id), sm = GS.summary(list)[mode], body = $('recBody');
     body.textContent = '';
+    // 這種玩法的積分：徽章、現在的分數、計分過的盤數、最高（紀錄裡計分過的盤的最高分，至少是現在的分數；還沒計分過＝—）
+    var rt = ratingOf(p, mode), pk = GS.peak(list, mode);
+    body.appendChild(cellEl('p', 'rec-rating', t('records.rating', { badge: badgeName(rt.badge), rating: rt.r, n: rt.games,
+      peak: rt.games || pk !== null ? Math.max(rt.r, pk === null ? rt.r : pk) : '—' })));
     if (!sm.total.n) { body.appendChild(cellEl('p', 'note rec-empty', t('records.empty'))); return; }
     function pct(r) { var v = GS.winRate(r); return v === null ? '—' : Math.round(v * 100) + '%'; }
     var tb = cellEl('table', 'rec-table'), th = cellEl('tr');
@@ -1304,6 +1347,7 @@
       var li = cellEl('li', 'res-' + g.result);
       li.appendChild(cellEl('span', 'rec-when', whenText(GS.timeOf(g))));
       li.appendChild(cellEl('span', 'rec-line', recLine(g)));
+      if (g.elo && typeof g.elo.delta === 'number') li.appendChild(cellEl('span', 'rec-delta ' + (g.elo.delta > 0 ? 'up' : g.elo.delta < 0 ? 'down' : 'same'), t('records.delta', { d: signed(g.elo.delta) })));
       ul.appendChild(li);
     });
     dl.appendChild(ul);
@@ -1369,11 +1413,31 @@
     var o = r.o, pr = GS.profile(o.pid), other = pr && pr.id !== me().id;
     var who = o.bot !== null ? t('records.oppAi', { level: levelName(o.level) }) : t('records.pvp');
     var p = { who: who, mode: t(r.state.mode === 'chain' ? 'mode.chain' : 'mode.classic'), n: r.state.ply, when: whenText(o.at), name: other ? pr.name : '' };
-    showDialog(t(other ? 'resume.askOther' : 'resume.ask', p), [
-      { label: t('resume.no'), onClick: function () { clearResume(o.ts); } },
+    var lose = abandonIsLoss(r);
+    showDialog(t(other ? 'resume.askOther' : 'resume.ask', p) + (lose ? ' ' + t('resume.lossNote') : ''), [
+      { label: t(lose ? 'resume.noLoss' : 'resume.no'), onClick: function () { if (lose) abandonResume(r); clearResume(o.ts); } },
       { label: t('resume.yes'), primary: true, onClick: function () { resumeGame(r); } }
     ]);
     return true;
+  }
+  // 放棄（照五子棋規格 2.7「放棄這盤」：跟電腦下、下到一定程度才放棄＝算輸、照一般輸棋算分）。
+  // 暗棋只有接著下的「不要了」放棄得了下到一半的盤；門檻是雙方都至少走過一步（棋譜裡兩位都有）。兩人同機不管走幾步都不記
+  function abandonIsLoss(r) {
+    var o = r.o, h = r.state.history || [];
+    if (o.bot === null || o.bot === undefined) return false;
+    return h.some(function (x) { return x.p === o.me; }) && h.some(function (x) { return x.p === o.bot; });
+  }
+  // 記成輸（reason 'resign'＋abandon，見 stats.js），照一般輸棋算分一次；同一盤先前已經有紀錄（別的視窗記過）就不再記
+  function abandonResume(r) {
+    var o = r.o, st = r.state;
+    if (GS.find(o.ts)) return null;
+    var rec = { ts: o.ts, at: Date.now(), pid: o.pid, mode: st.mode, opp: 'ai', level: o.level, color: st.colors[o.me] || null,
+      result: 'loss', reason: 'resign', abandon: true, plies: st.ply, drawPlies: st.drawPlies };
+    var x = settleRec(rec, null);
+    if (!GS.upsert(rec)) return null;
+    if (x) GS.setRating(rec.pid, rec.mode, x.entry);
+    renderProfileBtn();
+    return rec;
   }
   function resumeGame(r) {
     var o = r.o;
@@ -1510,6 +1574,7 @@
     $('levelCard').hidden = G.setup.opponent !== 'bot'; // 等級只在選電腦時出現
     $('rulesDraw').textContent = t('rules.draw', { n: G.setup.drawPlies });
     $('rulesNoChase').hidden = !G.setup.noChase; // 禁止長捉：開著時規則裡才有這一條
+    renderProfileBtn(); renderLevelNote(); // 積分是每種玩法各自的：換玩法時帳號鈕上的分數、等級底下的「對手 N 分」跟著換
   }
 
   // ------------------------------------------------------------ 開始頁的等級滑桿（作者 2026-10-25）
@@ -1551,7 +1616,7 @@
         nm.appendChild(plq);
       } else nm.textContent = name;
     }
-    $('lvlNote').classList.toggle('off', !sj);
+    renderLevelNote();
     $('lvl').classList.toggle('sj-on', sj);
     $('lvlStops').querySelectorAll('.lvl-stop.sj').forEach(function (el) {
       if (el.getAttribute('data-lang') === lang) return;
@@ -1567,6 +1632,23 @@
     $('lvl').classList.toggle('dots', t('start.levelTicks') === 'dots');
     $('lvlStops').querySelectorAll('.lvl-stop').forEach(function (el, i) { el.classList.toggle('on', i + 1 === pos); });
     $('lvlTicks').querySelectorAll('.lvl-tick').forEach(function (el, i) { el.classList.toggle('on', i + 1 <= pos); });
+  }
+  // 大字底下那一行：「對手 N 分」（現在選的玩法）；神將再接「· 每步推演百萬局面…」。
+  // 看不見的那一份（#lvlNoteGhost）一直放神將那一句，兩份疊在同一格，這一行的高度一直一樣
+  function renderLevelNote() {
+    var id = levelIdAt(Number($('lvlRange').value)), mode = curMode();
+    var opp = function (lv) { var r = RT.aiRating(mode, lv); return r === null ? '' : t('start.oppRating', { n: r }); };
+    var sjLine = t('start.noteJoin', { a: opp(SJ_LEVEL), b: t('start.sjNote') });
+    $('lvlNoteText').textContent = id === SJ_LEVEL ? sjLine : opp(id);
+    $('lvlNoteGhost').textContent = sjLine;
+  }
+  // 幫我挑對手：照這個帳號在現在選的玩法的積分（rating.js 的 recommendLevel），滑桿停到那一級（跟使用者自己換一樣記下來）；讀屏念挑了哪一級
+  function recommend() {
+    var mode = curMode(), mine = ratingOf(me(), mode).r;
+    var lv = RT.recommendLevel(mine, mode, AIX.LEVELS.map(function (l) { return l.id; })), pos = levelPosOf(lv);
+    if (pos === null) return;
+    pickLevel(pos);
+    $('srLive').textContent = t('start.recDone', { level: t(levelInfo(lv).name), opp: RT.aiRating(mode, lv), mine: mine });
   }
   // 程式放的（開頁讀設定、接著下）：只畫，不記
   function setLevelUI(id) {
@@ -2102,6 +2184,7 @@
     $('setBtnGame').addEventListener('click', openSettings);
     $('setBack').addEventListener('click', closeSettings);
     $('goBtn').addEventListener('click', function () { readSetup(); startGame(G.setup); });
+    $('recBtn').addEventListener('click', recommend);
     $('stopBtn').addEventListener('click', function () {
       var s = G.state;
       if (G.over || G.busy || !s || !s.chain || !isHuman(s.turn)) return;
@@ -2170,7 +2253,7 @@
       hiddenCounts: function () { return hiddenCounts(E.publicView(G.state)); },
       setIntel: setIntel,
       FONTS: FONTS,
-      GS: GS, RESUME_KEY: RESUME_KEY, TAB_ID: TAB_ID, saveResume: function () { saveResume(); }, readResume: function () { var r = readResume(); return r ? (r.busy ? 'busy' : r.o.ts) : null; },
+      GS: GS, RT: RT, RESUME_KEY: RESUME_KEY, TAB_ID: TAB_ID, saveResume: function () { saveResume(); }, readResume: function () { var r = readResume(); return r ? (r.busy ? 'busy' : r.o.ts) : null; },
       remeasureBars: remeasureBars,
       render: render,
       DEFAULTS: DEFAULTS,
