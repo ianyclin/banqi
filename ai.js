@@ -131,12 +131,15 @@
   var LEVELS = [
     { id: 1, name: 'ai.level1', algo: 'random', depth: 0, nodes: 0, features: {} },
     { id: 2, name: 'ai.level2', algo: 'search', depth: 1, nodes: 4000, features: feats({ contempt: false }) },
-    { id: 3, name: 'ai.level3', algo: 'search', depth: 2, nodes: 6000, features: feats({}) },
-    { id: 4, name: 'ai.level4', algo: 'search', depth: 4, nodes: 20000, features: feats({}) },
-    { id: 5, name: 'ai.level5', algo: 'search', depth: 6, nodes: 150000, features: feats({}) },
+    { id: 3, name: 'ai.level3', algo: 'search', depth: 2, nodes: 6000, features: feats({ noProgress: true }) },
+    { id: 4, name: 'ai.level4', algo: 'search', depth: 4, nodes: 20000, features: feats({ noProgress: true }) },
+    { id: 5, name: 'ai.level5', algo: 'search', depth: 6, nodes: 150000, features: feats({ noProgress: true }) },
     { id: 6, name: 'ai.level6', algo: 'search', depth: 64, nodes: 300000,
       features: feats({ tt: true, quiesce: true, flipGate: true, passQ: true, noProgress: true, genDanger: true, hanging: false }) }
   ];
+  // 第 7 級「神將」（作者 2026-10-25）：跟第 6 級同一套設定（演算法、深度、所有功能開關都從第 6 級抄），只有節點預算 100 萬。
+  // 不做背景預先思考（ponder）：量過沒有變強
+  LEVELS.push({ id: 7, name: 'ai.level7', algo: LEVELS[5].algo, depth: LEVELS[5].depth, nodes: 1000000, features: feats(LEVELS[5].features) });
   var DEFAULT_TIME_LIMIT = 10000; // 毫秒；只是保險，正常由節點預算決定
 
   // ------------------------------------------------------------ 搜尋狀態（模組內共用；一次只跑一個搜尋）

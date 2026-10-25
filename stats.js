@@ -6,7 +6,7 @@
  * 設定（banqi.settings.v1）是整台裝置共用的，不分帳號。
  * 紀錄 banqi.games.v1：每盤下完一筆，最多留 500 筆（最舊的先丟）。欄位：
  *   ts（開局時間，也是去重鍵：同一盤只留一筆）、at（結束時間）、pid（記在哪個帳號）、mode 'classic'|'chain'、
- *   opp 'ai'|'pvp'、level 1–6（兩人同機是 null）、color 'r'|'b'|null（我的顏色；兩人同機＝下方玩家的顏色）、
+ *   opp 'ai'|'pvp'、level 1–7（7＝神將，2026-10-25 加；兩人同機是 null）、color 'r'|'b'|null（我的顏色；兩人同機＝下方玩家的顏色）、
  *   result 'win'|'loss'|'draw'（我的角度；兩人同機＝下方玩家的角度）、reason 'noPieces'|'noMoves'|'resign'|'drawPlies'|'repetition'、
  *   plies 步數（引擎的 ply）、drawPlies 這盤的平手步數。
  * 這裡全是純函式＋localStorage 的讀寫，不碰 DOM。
@@ -15,7 +15,7 @@
   'use strict';
   var PKEY = 'banqi.profiles.v1', GKEY = 'banqi.games.v1';
   var MAX_PROFILES = 8, MAX_GAMES = 500, NAME_MAX = 12;
-  var MODES = ['classic', 'chain'], LEVELS = [1, 2, 3, 4, 5, 6];
+  var MODES = ['classic', 'chain'], LEVELS = [1, 2, 3, 4, 5, 6, 7]; // ＝ ai.js 的 LEVELS 的 id（test.js 核對）
   var REASONS = ['noPieces', 'noMoves', 'resign', 'drawPlies', 'repetition'];
 
   function readJSON(key, dflt) {
@@ -92,9 +92,12 @@
   }
 
   // ---------------------------------------------------------- 紀錄
+  // 等級：認得的（LEVELS）照常；不認得的正整數（之後的版本加的等級，例如 8）也留著，不丟、不改寫——舊版把新等級的紀錄丟掉再整串寫回去，
+  // 紀錄就沒了（v0.1.4 的 stats.js 對第 7 級就是這樣，已經改不了）。這種紀錄在統計表裡算在「其他」那一列（summary 的 rows.other）
+  function validLevel(lv) { return typeof lv === 'number' && lv > 0 && lv % 1 === 0 && lv < 1000; }
   function validGame(g) {
     return g && typeof g === 'object' && typeof g.ts === 'number' && isFinite(g.ts) && typeof g.pid === 'string' &&
-      MODES.indexOf(g.mode) >= 0 && (g.opp === 'ai' || g.opp === 'pvp') && (g.opp === 'pvp' || LEVELS.indexOf(g.level) >= 0) &&
+      MODES.indexOf(g.mode) >= 0 && (g.opp === 'ai' || g.opp === 'pvp') && (g.opp === 'pvp' || validLevel(g.level)) &&
       (g.result === 'win' || g.result === 'loss' || g.result === 'draw') && REASONS.indexOf(g.reason) >= 0;
   }
   function timeOf(g) { return typeof g.at === 'number' ? g.at : g.ts; }
@@ -121,17 +124,18 @@
   }
   function loadFor(pid) { return loadGames().filter(function (g) { return g.pid === pid; }); }
 
-  // 統計：每種玩法一份；opp 一列一個（電腦 1–6、兩人同機），每列 n／w／d／l；結束原因每一種的 w／d／l
+  // 統計：每種玩法一份；opp 一列一個（電腦 1–7、不認得的等級合成一列 other、兩人同機），每列 n／w／d／l；結束原因每一種的 w／d／l
   function summary(list) {
     var out = {};
     MODES.forEach(function (m) {
       var rows = {}, reasons = {}, tot = { n: 0, w: 0, d: 0, l: 0 };
       LEVELS.forEach(function (lv) { rows[lv] = { n: 0, w: 0, d: 0, l: 0 }; });
       rows.pvp = { n: 0, w: 0, d: 0, l: 0 };
+      rows.other = { n: 0, w: 0, d: 0, l: 0 };
       REASONS.forEach(function (r) { reasons[r] = { w: 0, d: 0, l: 0 }; });
       list.forEach(function (g) {
         if (g.mode !== m) return;
-        var row = rows[g.opp === 'pvp' ? 'pvp' : g.level], k = g.result === 'win' ? 'w' : g.result === 'loss' ? 'l' : 'd';
+        var row = rows[g.opp === 'pvp' ? 'pvp' : LEVELS.indexOf(g.level) >= 0 ? g.level : 'other'], k = g.result === 'win' ? 'w' : g.result === 'loss' ? 'l' : 'd';
         row.n++; row[k]++; tot.n++; tot[k]++;
         reasons[g.reason][k]++;
       });
@@ -146,7 +150,7 @@
     PKEY: PKEY, GKEY: GKEY, MAX_PROFILES: MAX_PROFILES, NAME_MAX: NAME_MAX, MODES: MODES, LEVELS: LEVELS, REASONS: REASONS,
     initProfiles: initProfiles, profileList: profileList, profile: profile, current: current, setCurrent: setCurrent,
     addProfile: addProfile, renameProfile: renameProfile, deleteProfile: deleteProfile,
-    loadGames: loadGames, loadFor: loadFor, upsert: upsert, find: find, validGame: validGame,
+    loadGames: loadGames, loadFor: loadFor, upsert: upsert, find: find, validGame: validGame, validLevel: validLevel,
     summary: summary, winRate: winRate, timeOf: timeOf
   };
 })(typeof self !== 'undefined' ? self : this);

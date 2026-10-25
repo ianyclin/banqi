@@ -345,7 +345,7 @@ html.tight .side button.resign { padding: 0 10px; }
 /* 狀態列（作者 2026-10-24：移到棋盤下面、下面那條上面）：輪到誰＋連吃中的「停在這裡」 */
 .status-row { display: flex; align-items: center; justify-content: center; gap: 10px; height: var(--status-h); overflow: hidden; }
 #status { margin: 0; font-weight: 700; font-size: .9375rem; text-align: center; line-height: 1.2; max-height: 2.4em; overflow: hidden; }
-/* 同一盤面已出現兩次（再一次就和）：狀態字旁邊的小標，不換行、不縮；狀態字要讓位時自己換成兩行 */
+/* 同一盤面已出現兩次（再一次就和）、不吃不翻倒數（#drawWarn 也用這個 class）：狀態字旁邊的小標，不換行、不縮；狀態字要讓位時自己換成兩行 */
 .rep-warn { flex: none; font: 700 .75rem/1.2 var(--font-body); color: var(--danger); border: 1px solid currentColor; border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
 button.stop { flex: none; min-height: 0; height: calc(var(--status-h) - 6px); padding: 0 18px; border-radius: 12px; background: var(--pri); color: var(--on-pri); font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
 
@@ -567,6 +567,8 @@ button.chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowra
 .rec-table tr:first-child th { font-size: var(--fs-small); color: var(--ink-2); font-weight: 700; }
 .rec-table tr:last-child th, .rec-table tr:last-child td { border-bottom: 0; }
 .rec-table tr.total th, .rec-table tr.total td { font-weight: 700; background: var(--tint); }
+/* 矮的畫面（320×568）：七個等級都下過時（2026-10-25 加第 7 級神將）表多一列，英文那一頁會多 17px；每格上下各少 1px，整頁還是一個畫面 */
+@media (max-height: 600px) { .rec-table th, .rec-table td { padding-top: 3px; padding-bottom: 3px; } }
 .rec-more { margin: 8px 0 0; padding: 0 12px; }
 #records .topbar { margin-bottom: 10px; }
 #records .note { margin-top: 4px; }
@@ -645,3 +647,115 @@ body.end-revealed #statusRow { display: none; }
 .safe-top-cover { position: fixed; top: 0; left: 0; right: 0; z-index: 8; pointer-events: none; height: env(safe-area-inset-top, 0px); background: var(--bg); }
 html.has-safe-top .safe-top-cover { height: calc(env(safe-area-inset-top, 0px) + 24px); background: linear-gradient(to bottom, var(--bg) calc(100% - 12px), transparent); }
 #safeProbe { position: fixed; top: 0; left: 0; width: 0; height: env(safe-area-inset-top, 0px); visibility: hidden; pointer-events: none; }
+
+/* ---------- 神將（第 7 級，作者 2026-10-25；照設計稿 shenjiang-ui 第 4 版）：黑漆與金、書法字（Yuji Syuku 的外框，index.html 的 .sj-sprite）、印章「百萬」 ----------
+   色號照五子棋天元（gomoku/style.css 的 --lq-*／--gold-*／--tg-off-*），淺色、深色各一組。金色漸層與飛白寫在 svg 的 fill／mask 屬性上
+   （外部樣式表裡的 url(#…) 不一定指到這一頁），CSS 只在「沒選」時把字蓋成暗金色。英文介面不畫中文書法字：「Divine General」用宋體粗字＋金色漸層（.sj-t），印章照樣是百萬 */
+:root {
+  --lq-1: #1d1a17; --lq-2: #3a332c; --gold-1: #c9a44a; --gold-2: #f2d27a; --gold-3: #d9b45a;
+  --tg-off-1: #625c55; --tg-off-2: #5a544d; --tg-off-ink: #ece0bb; --tg-off-edge: #4d4842;
+  --seal: #c23b22; --seal-ink: #fbf1dd;
+}
+:root[data-scheme="dark"] { --tg-off-1: #3c3732; --tg-off-2: #35312c; --tg-off-ink: #bba673; --tg-off-edge: #5a5040; }
+.sj-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.sj-cal { display: block; flex: none; overflow: visible; }
+.sj-t { font-family: var(--font-title); font-weight: 700; letter-spacing: .02em; white-space: nowrap;
+  background: linear-gradient(180deg, var(--gold-2) 0%, var(--gold-1) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+.sj-star { flex: none; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--gold-2), var(--gold-1) 70%); box-shadow: 0 0 3px rgba(242, 196, 90, .6); }
+/* 印章「百萬」（白文：朱色直式長方印，字是紙色；「百」在上、「萬」在下） */
+.sj-seal { display: block; flex: none; overflow: visible; }
+
+/* 1. 開始頁的等級滑桿：神將那一格的格點＝金點黑圈；格下＝黑漆金字小牌（沒選＝淡黑漆暗金字、選到＝深黑漆亮金字＋金框＋淡金光）。
+   選到神將：圓子換成黑漆描金、填色最後一段變金色、上面的大字換成書法字牌＋小金點，底下一行小字（#lvlNote）。
+   大字那一行固定高（書法字牌比字高），換到神將時滑桿不會跳 */
+.lvl-name { min-height: 46px; display: flex; align-items: center; justify-content: center; }
+.lvl-note { margin: -2px 0 2px; text-align: center; font-size: var(--fs-small); line-height: 1.4; color: var(--ink-2); min-height: 1.4em; }
+.lvl-note.off { visibility: hidden; }
+.lvl-tick.sj { width: 10px; height: 10px; opacity: 1; background: radial-gradient(circle at 35% 35%, var(--gold-2), var(--gold-1) 70%); box-shadow: 0 0 0 2px var(--lq-1); }
+.lvl-tick.sj.on { box-shadow: 0 0 0 2px var(--lq-1), 0 0 6px 2px rgba(242, 196, 90, .6); }
+.lvl-stop.sj { overflow: visible; padding-top: 3px; display: flex; justify-content: center; align-items: flex-start; }
+.sj-pill { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 5px; border-radius: 999px;
+  background: linear-gradient(170deg, var(--tg-off-1) 0%, var(--tg-off-2) 62%); border: 1px solid var(--tg-off-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 1px 2px rgba(20, 14, 8, .18); }
+.sj-pill .sj-cal { width: 30px; height: 15px; }
+.sj-pill .sj-t { font-size: .6875rem; }
+.lvl-stop.sj:not(.on) .sj-pill .sj-cal g { fill: var(--tg-off-ink); }
+.lvl-stop.sj:not(.on) .sj-pill .sj-t { background: none; color: var(--tg-off-ink); -webkit-text-fill-color: var(--tg-off-ink); }
+.lvl-stop.sj.on .sj-pill { background: linear-gradient(170deg, var(--lq-2) 0%, var(--lq-1) 62%); border: 1.5px solid var(--gold-3);
+  box-shadow: inset 0 1px 0 rgba(255, 236, 190, .14), 0 0 0 1px rgba(242, 196, 90, .3), 0 0 8px 1px rgba(242, 196, 90, .45); }
+.lvl.sj-on .lvl-fill { background: linear-gradient(90deg, var(--accent) 0 calc(100% * (var(--n) - 2) / max(var(--n) - 1, 1)), var(--gold-1) calc(100% * (var(--n) - 2) / max(var(--n) - 1, 1)), var(--gold-2)); }
+.lvl.sj-on .lvl-thumb { background: radial-gradient(circle at 35% 28%, #4a423a 0, var(--lq-2) 30%, var(--lq-1) 70%, #0b0907);
+  box-shadow: inset 0 0 0 1.5px var(--gold-3), 0 0 0 1px #8a6a24, 0 0 8px 1px rgba(242, 196, 90, .5), 0 2px 3px var(--sh-sm); }
+.lvl.sj-on .lvl-thumb::before { border-color: var(--gold-2); opacity: .7; }
+.sj-plq { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 10px; letter-spacing: 0; text-indent: 0;
+  background: linear-gradient(170deg, var(--lq-2) 0%, var(--lq-1) 65%); box-shadow: 0 0 0 1.5px var(--gold-1), 0 0 12px 1px rgba(242, 196, 90, .35); }
+.sj-plq .sj-cal { width: 64px; height: 32px; }
+.sj-plq .sj-t { font-size: 1.25rem; line-height: 1; }
+
+/* 2. 對局上方那條（電腦那一邊）：「・等級」換成黑漆金字小框（高 18px，不撐高那一條）；開局（字卡收起那一刻，沒有字卡時開局就）金色光澤由左到右掃一次 */
+.sj-capbox { position: relative; overflow: hidden; display: inline-flex; align-items: center; vertical-align: middle; height: 18px; padding: 0 7px; margin-left: 4px; border-radius: 999px;
+  background: linear-gradient(170deg, var(--lq-2) 0%, var(--lq-1) 65%); border: 1px solid #6a5838; }
+.sj-capbox .sj-cal { width: 30px; height: 15px; }
+.sj-capbox .sj-t { font-size: .6875rem; line-height: 1; }
+.sj-capbox::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 60%; pointer-events: none; opacity: 0;
+  background: linear-gradient(100deg, rgba(255, 238, 190, 0) 0%, rgba(255, 238, 190, .75) 50%, rgba(255, 238, 190, 0) 100%); transform: translateX(-120%); }
+.sj-capbox.sweep::after { animation: sj-capsweep .9s ease-in-out var(--sd, 0s) 1 both; } /* --sd：重畫那一條時接著掃剩下的（app.js 的 sjCapBox） */
+@keyframes sj-capsweep { 0% { opacity: 1; transform: translateX(-120%); } 99% { opacity: 1; transform: translateX(200%); } 100% { opacity: 0; transform: translateX(200%); } }
+
+/* 3. 開場字卡「大字」：疊在棋盤那一列上 2.0 秒（長度固定，不跟動畫速度的慢／快）。0–0.18 秒暗幕淡入 → 0.25–1.5 秒金字「神將」照筆順一筆一筆寫出來
+   （canvas，app.js 的 sjInk）→ 1.44 秒印章「百萬」蓋下去 → 1.52–1.79 秒一道光掃過字 → 1.76 秒起整張淡掉，2.0 秒收起。點一下、Esc／Enter／空白鍵跳過。
+   減少動態效果（系統設定或動畫「無」）時 app.js 不出字卡。大小由 app.js 量棋盤那一列給 --W（字寬，px）、--S2（剪影邊長）；只動 transform／opacity */
+.board-row { position: relative; }
+.sj-card { position: absolute; inset: 0; z-index: 5; overflow: hidden; border-radius: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: none; --W: 280px; }
+.sj-card.run { animation: sj-out 2s linear both; }
+@keyframes sj-out { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+.sj-card .veil { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 45%, rgba(29, 26, 23, .92), rgba(11, 9, 7, .95)); }
+.sj-card.run .veil { animation: sj-in .18s ease-out both; }
+@keyframes sj-in { from { opacity: 0; } to { opacity: 1; } }
+/* 武將剪影（index.html 的 #sjSil，作者 2026-10-25 核准）：#sjSil 裡有 path 時 app.js 才加 .sil-on。約四成濃度的金色，淡入並在整張字卡的時間裡從 0.94 倍推近到 1 倍；字有暗色暈開，一直是主角 */
+.sj-card .bsil { display: none; position: absolute; left: 50%; top: 50%; width: var(--S2, 300px); height: var(--S2, 300px); margin-left: calc(var(--S2, 300px) / -2); margin-top: calc(var(--S2, 300px) / -2); opacity: 0; }
+.sj-card.sil-on .bsil { display: block; }
+.sj-card .bsil svg { display: block; width: 100%; height: 100%; }
+.sj-card .bsil use { fill: var(--gold-1); fill-opacity: .4; }
+.sj-card.run .bsil { animation: sj-in .35s ease-out both, sj-push 2s cubic-bezier(.25, .5, .35, 1) both; }
+@keyframes sj-push { from { transform: scale(.94); } to { transform: scale(1); } }
+.sj-card .bink { position: absolute; left: 50%; top: 50%; width: var(--W); height: calc(var(--W) / 2); margin-left: calc(var(--W) / -2); margin-top: calc(var(--W) / -4);
+  filter: drop-shadow(0 0 calc(var(--W) * .018) rgba(0, 0, 0, .9)) drop-shadow(0 calc(var(--W) * .01) calc(var(--W) * .03) rgba(0, 0, 0, .6)); }
+.sj-card .bink canvas { position: absolute; left: 0; top: 0; display: block; width: 100%; height: 100%; }
+/* canvas 不能用（或畫的時候出錯）：改成整個字 0.25 秒起淡入 */
+.sj-card .bink .sj-static { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: none; }
+.sj-card.ink-static .bink canvas { visibility: hidden; }
+.sj-card.ink-static .bink .sj-static { display: block; }
+.sj-card.ink-static.run .sj-static { animation: sj-in .4s linear .25s both; }
+/* 英文：Divine General 金字，由左到右刷出來（0.25–1.5 秒）、一道光掃過（1.52–1.79 秒，只落在字上） */
+.sj-card .bname { display: none; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; }
+.sj-card.en .bink canvas { display: none; }
+.sj-card.en .bname { display: block; }
+.sj-card .bname b { display: inline-block; position: relative; font-size: calc(var(--W) * .118); line-height: 1.25; font-weight: 900; }
+.sj-card .bname .sj-t { filter: drop-shadow(0 0 2px rgba(0, 0, 0, .9)); }
+.sj-card.run .bname .sj-t { animation: sj-wipe 1.25s cubic-bezier(.45, .1, .4, 1) .25s both; }
+@keyframes sj-wipe { from { clip-path: inset(-10% 100% -10% 0); } to { clip-path: inset(-10% 0 -10% 0); } }
+.sj-card .bname .sw { position: absolute; left: 0; top: 0; filter: none;
+  background-image: linear-gradient(100deg, rgba(255, 246, 220, 0) 40%, rgba(255, 246, 220, .9) 50%, rgba(255, 246, 220, 0) 60%); background-size: 300% 100%; background-position: 100% 0; opacity: 0; }
+.sj-card.run .bname .sw { animation: sj-swtext .27s linear 1.52s both; }
+@keyframes sj-swtext { 0% { opacity: 1; background-position: 100% 0; } 99% { opacity: 1; background-position: 0 0; } 100% { opacity: 0; background-position: 0 0; } }
+/* 印章：字寫完時（1.44 秒）蓋下去——從大、淡，壓到比原來小一點再回來（位置與大小由 app.js 給 --sx／--sy（中心）、--sw／--ss（寬、高），px，相對字的框） */
+.sj-card .seal-at { position: absolute; left: calc(50% - var(--W) / 2 + var(--sx, 0px)); top: calc(50% - var(--W) / 4 + var(--sy, 0px)); width: var(--sw, 32px); height: var(--ss, 56px);
+  margin: calc(var(--ss, 56px) / -2) 0 0 calc(var(--sw, 32px) / -2); opacity: 0; transform: rotate(-4deg); }
+.sj-card .seal-at .sj-seal { width: 100%; height: 100%; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55)); }
+.sj-card.run .seal-at { animation: sj-seal .22s cubic-bezier(.3, .1, .3, 1) 1.44s both; }
+@keyframes sj-seal { 0% { opacity: 0; transform: rotate(-4deg) scale(1.7); } 45% { opacity: 1; } 70% { opacity: 1; transform: rotate(-4deg) scale(.94); } 100% { opacity: 1; transform: rotate(-4deg) scale(1); } }
+
+/* 4. 打贏神將的結算卡（金色版）：外圈細金框；標題「你贏了神將！」放黑漆帶上（金字放在米色卡上對比不夠，五子棋同一個理由），後面蓋一個百萬印。輸了、平手照舊 */
+.end-card.sj-win { overflow: hidden; box-shadow: 0 0 0 1.5px var(--gold-1), 0 0 14px 1px rgba(242, 196, 90, .35), var(--sh-panel); }
+.end-card.sj-win h2 { margin: -20px -16px 14px; padding: 14px 12px 12px; border-bottom: 1px solid var(--gold-1);
+  background: linear-gradient(170deg, var(--lq-2) 0%, var(--lq-1) 65%); display: flex; align-items: center; justify-content: center; gap: 2px; line-height: 1; }
+.end-card.sj-win h2 .sj-t { font-weight: 900; letter-spacing: .04em; }
+html[lang="en"] .end-card.sj-win h2 { font-size: 1.5rem; line-height: 1.15; }
+html[lang="en"] .end-card.sj-win h2 .sj-t { white-space: normal; letter-spacing: .01em; }
+.end-card.sj-win h2 .sj-cal { width: 2.6em; height: 1.3em; margin: 0 .04em; }
+.end-card.sj-win h2 .sj-seal { width: .73em; height: 1.3em; margin-left: 10px; transform: rotate(-4deg); }
+.end-overlay.revealed .end-card.sj-win h2 { display: inline-flex; vertical-align: middle; margin: 0 8px 0 0; padding: 4px 10px; border: 0; border-radius: 999px; }
+.end-overlay.revealed .end-card.sj-win h2 .sj-seal { margin-left: 6px; }
+
+@media (prefers-reduced-motion: reduce) { .sj-capbox::after { display: none; } }

@@ -493,6 +493,14 @@
     return countSeen(s, positionKey(s));
   }
 
+  // 規則 7：再幾手（兩人合計；一手＝一個人走一次，連吃整串算一手）都沒有翻子也沒有吃子就和。
+  // 和 computeResult 同一個算法：一手走完 quietPlies ≥ drawPlies 就和，所以 n＝drawPlies − quietPlies，n＝1 是「下一手不吃不翻就和」。
+  // 連吃到一半：這一手以吃子開始，走完一定歸零（12.1），回 drawPlies。公開狀態也有 quietPlies 與 drawPlies，publicView 也能問
+  function pliesUntilDraw(s) {
+    if (s.chain) return s.drawPlies;
+    return Math.max(0, s.drawPlies - s.quietPlies);
+  }
+
   // 一手走完、換人之後判定。先看輪到的人輸了沒（6），再看和棋（7、8）。見規格 6.4。
   // 例外（8.5.4）：只因為禁止長捉才沒有合法步（不看這條時還有步）時，先看 7、8，成立就照常和，都不成立才照 6.2 判輸。
   // 對局中剛走完的一方不可能沒子；fromBoard 擺出「沒輪到的一方已經沒子」時也要判（他輸）。
@@ -789,7 +797,7 @@
     colorOf: colorOf, typeOf: typeOf, squareName: squareName, parseSquare: parseSquare,
     canStepCapture: canStepCapture,
     makeRng: makeRng, defaultRng: defaultRng, randInt: randInt, shuffle: shuffle,
-    newGame: newGame, fromBoard: fromBoard, positionKey: positionKey, repetitionCount: repetitionCount,
+    newGame: newGame, fromBoard: fromBoard, positionKey: positionKey, repetitionCount: repetitionCount, pliesUntilDraw: pliesUntilDraw,
     legalMoves: legalMoves, forbiddenSteps: forbiddenSteps, isChase: isChase, isLegal: isLegal, applyMove: applyMove, applyResign: applyResign, result: result,
     publicView: publicView, sampleHidden: sampleHidden,
     encodeRecord: encodeRecord, decodeRecord: decodeRecord

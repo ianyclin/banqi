@@ -16,7 +16,7 @@
  * （有 MessageChannel 的 port 就回 port，沒有就回給發訊息的那個頁面）。
  */
 /* eslint-env serviceworker */
-var BANQI_VERSION = 'v0.1.4';
+var BANQI_VERSION = 'v0.1.5';
 var CACHE_PREFIX = 'banqi-';
 var CACHE = CACHE_PREFIX + BANQI_VERSION;
 
@@ -43,7 +43,8 @@ var SHELL = [
   'fonts/tw-kai.woff2',
   'fonts/LICENSES/lxgw-wenkai-tc.txt',
   'fonts/LICENSES/noto-serif-tc.txt',
-  'fonts/LICENSES/tw-kai.txt'
+  'fonts/LICENSES/tw-kai.txt',
+  'fonts/LICENSES/yuji.txt'
 ];
 
 self.addEventListener('install', function (e) {
