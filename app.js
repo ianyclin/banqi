@@ -53,7 +53,8 @@
     barLevel: { top: 0, bottom: 0 },
     record: null,     // 終局的棋譜（引擎的 encodeRecord；認輸時 app 自己補 [Result]）
     set: null,        // 設定（readSettings()）
-    back: null        // 設定頁按「返回」回到哪一頁
+    back: null,       // 設定頁按「返回」回到哪一頁
+    repWarn: false    // 狀態列的「再重複一次就平手」現在顯示中（剛出現時讀屏念一次）
   };
 
   // 時間（毫秒）。測試可以用 __banqiApp.setSpeed(0.05) 調快。
@@ -580,6 +581,24 @@
     if (G.bot !== null && s.colors[0] === null && s.turn === G.bot) txt = t('status.firstFlipBot');
     if ($('status').textContent !== txt) $('status').textContent = txt;
     $('stopBtn').hidden = !(!G.over && !G.busy && s.chain && isHuman(s.turn));
+    renderRepWarn();
+  }
+
+  // 同一盤面已出現兩次＝再一次就和（規則 8）：狀態列旁邊一個小標，不管輪到誰（人、電腦、兩人同機）。
+  // 次數問引擎（連吃到一半回 0；翻子、吃子後紀錄清空）。分出勝負以後不顯示。讀屏：剛出現的那一次用 #srLive 念整句
+  function renderRepWarn() {
+    var s = G.state, el = $('repWarn');
+    var on = !!s && !G.over && !s.result && E.repetitionCount(s) === E.REPETITION_LIMIT - 1;
+    if (on) {
+      var short = t('status.repWarnShort'), full = t('status.repWarn');
+      if (el.textContent !== short) el.textContent = short;
+      if (el.title !== full) el.title = full;
+      if (!G.repWarn) $('srLive').textContent = full;
+    } else if (G.repWarn && $('srLive').textContent === t('status.repWarn')) {
+      $('srLive').textContent = ''; // 下一次出現時字有變，讀屏才會再念
+    }
+    el.hidden = !on;
+    G.repWarn = on;
   }
 
   // 還沒翻的子：從公開狀態算（每種子的總數 − 盤上的明子 − 被吃的子），跟引擎的 pool 一樣

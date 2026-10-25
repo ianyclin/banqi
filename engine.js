@@ -361,6 +361,13 @@
     return n;
   }
 
+  // 現在這個盤面在盤面紀錄裡出現了幾次（含這一次）。連吃到一半不是一手的結束、不記（規格 8.2），回 0。
+  // 畫面用它在「再一次就和」（＝ REPETITION_LIMIT − 1）時提醒；公開狀態也有 seen，所以 publicView 也能問
+  function repetitionCount(s) {
+    if (s.chain) return 0;
+    return countSeen(s, positionKey(s));
+  }
+
   // 一手走完、換人之後判定。先看輪到的人輸了沒（6），再看和棋（7、8）。見規格 6.4。
   // 對局中剛走完的一方不可能沒子；fromBoard 擺出「沒輪到的一方已經沒子」時也要判（他輸）。
   function computeResult(s) {
@@ -646,7 +653,7 @@
     colorOf: colorOf, typeOf: typeOf, squareName: squareName, parseSquare: parseSquare,
     canStepCapture: canStepCapture,
     makeRng: makeRng, defaultRng: defaultRng, randInt: randInt, shuffle: shuffle,
-    newGame: newGame, fromBoard: fromBoard, positionKey: positionKey,
+    newGame: newGame, fromBoard: fromBoard, positionKey: positionKey, repetitionCount: repetitionCount,
     legalMoves: legalMoves, isLegal: isLegal, applyMove: applyMove, applyResign: applyResign, result: result,
     publicView: publicView, sampleHidden: sampleHidden,
     encodeRecord: encodeRecord, decodeRecord: decodeRecord

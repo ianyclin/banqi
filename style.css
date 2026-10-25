@@ -339,6 +339,8 @@ html.tight .side button.resign { padding: 0 10px; }
 /* 狀態列（作者 2026-10-24：移到棋盤下面、下面那條上面）：輪到誰＋連吃中的「停在這裡」 */
 .status-row { display: flex; align-items: center; justify-content: center; gap: 10px; height: var(--status-h); overflow: hidden; }
 #status { margin: 0; font-weight: 700; font-size: .9375rem; text-align: center; line-height: 1.2; max-height: 2.4em; overflow: hidden; }
+/* 同一盤面已出現兩次（再一次就和）：狀態字旁邊的小標，不換行、不縮；狀態字要讓位時自己換成兩行 */
+.rep-warn { flex: none; font: 700 .75rem/1.2 var(--font-body); color: var(--danger); border: 1px solid currentColor; border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
 button.stop { flex: none; min-height: 0; height: calc(var(--status-h) - 6px); padding: 0 18px; border-radius: 12px; background: var(--pri); color: var(--on-pri); font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
 
 /* 棋盤：JS 依可用空間算 --cell，直式 4×8、寬螢幕 8×4。.board-wrap＝外框（內距 --bpad），#board＝盤面 */
