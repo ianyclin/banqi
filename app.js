@@ -38,6 +38,7 @@
     recAt: null,      // 這個視窗自己記的那一筆紀錄的 at（另一個視窗結束同一盤時分得出來）
     live: false,      // 這盤正在下（會存「接著下」）      // 暫時顯示的棋盤（攻擊暗子：先翻開給你看，再吃）；null＝照 state.board
     busy: false,      // 動畫或電腦在想、在走：不收點擊
+    queue: [],        // 攻擊暗子翻開那一下（已經輪到人）點的格子：那一下過了照順序點
     gen: 0,           // 換盤、回首頁時加一，舊的計時器就不會再動
     over: null,       // 結果 { winner, reason }
     revealed: false,  // 終局攤開了沒
@@ -503,7 +504,7 @@
 
   // 上下兩條（設計稿）：顏色標記、名字（下面一行寫紅方／黑方）、輪到的那條加「輪到」小標與框（兩人同機時跟著輪到的人上下換）、吃了幾個子、右端的按鈕
   function renderSide(el, p) {
-    var s = G.state, col = s.colors[p], on = !G.over && s.turn === p;
+    var s = G.state, col = s.colors[p], on = !G.over && !s.result && s.turn === p; // 分出勝負到結果卡出來之前：哪一條都不框
     var tagOn = on || G.measureTag; // layoutBoard 量寬度時兩條都放小標（最擠的情形）
     var btns = p === G.me ? SIDE_BTNS.bottom : SIDE_BTNS.top, lv = G.barLevel[barKey(p)];
     el.className = 'side' + (p !== G.me ? ' opp' : '') + (on ? ' active' : '');
@@ -560,7 +561,7 @@
 
   function statusText() {
     var s = G.state;
-    if (G.over) return t('status.over');
+    if (G.over || s.result) return t('status.over'); // 分出勝負到結果卡出來之前（G.busy）：不寫輪到誰
     if (!isHuman(s.turn)) return t('status.bot');
     if (s.chain) return t('status.chain');
     if (s.colors[0] === null) {
@@ -730,8 +731,16 @@
   }
 
   function onCell(sq) {
-    if (G.page !== 'game' || !G.state || G.over || G.busy) return;
+    if (G.page !== 'game' || !G.state || G.over) return;
     var s = G.state;
+    if (G.busy) {
+      // 攻擊暗子翻開的那一下：狀態列與底下那條已經是走完的樣子（可能已經輪到人），這時點的不能丟掉，記著、那一下過了照順序點。
+      // 只收畫面上和走完以後一樣的格子（攻擊成功時起點、終點會變：搖一下）。電腦在想、分出勝負等結果卡：照舊不收
+      if (G.shown && !s.result && isHuman(s.turn)) {
+        if (G.shown[sq] === s.board[sq]) G.queue.push(sq); else shake(sq);
+      }
+      return;
+    }
     if (!isHuman(s.turn)) return;
     var x = s.board[sq], col = s.colors[s.turn], moves = E.legalMoves(s), m;
     if (s.chain) {
@@ -778,7 +787,14 @@
       G.busy = true;
       render();
       if (!atk.success) toast(t(human ? 'toast.failed' : 'toast.failedBot', { piece: pieceName(atk.revealed) }));
-      later(MS.attack, function () { G.shown = null; G.busy = false; render(); next(); });
+      G.queue = [];
+      later(MS.attack, function () {
+        G.shown = null; G.busy = false; render(); next();
+        // 這一下裡點的格子：照順序點；點到又不收了（又一次攻擊、輪到電腦、分出勝負）剩下的就不要了
+        var q = G.queue;
+        G.queue = [];
+        while (q.length && !G.busy && !G.over) onCell(q.shift());
+      });
       return;
     }
     render();
@@ -1257,8 +1273,9 @@
     var o = r.o;
     G.gen++;
     AI.cancel(); G.thinking = null;
-    G.setup = o.setup;
     ['mode', 'opponent', 'first', 'level'].forEach(function (k) { if (o.setup[k] != null) check(k, o.setup[k]); });
+    readSetup(); // 開始頁的等級卡、兩人同機的說明跟著剛勾的那一項（回首頁才看得到）；readSetup 不存設定、不改 G.set
+    G.setup = o.setup; // 這一盤的設定照存檔（readSetup 讀到的平手步數是開始頁現在的，不是這一盤的）
     G.me = o.me; G.bot = o.bot; G.level = o.bot !== null ? o.level : G.set.level;
     G.state = r.state;
     G.botRng = E.defaultRng();
