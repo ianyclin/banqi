@@ -256,9 +256,30 @@ button {
 }
 button:not(:disabled):active { transform: translateY(1px); }
 button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-button.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--raise); }
 button.good { background: var(--pri); color: var(--on-pri); }
-button.link { background: none; color: var(--accent); border: 1px solid var(--line); box-shadow: none; min-height: 36px; padding: 4px 14px; border-radius: 999px; font-size: var(--fs-small); font-weight: 700; }
+/* ---------- 次要按鈕與圖示鈕（作者 2026-10-25：全站統一，一套樣式只寫在這裡） ----------
+   兩種，主要按鈕（開始、再來一盤、綠色填滿的、.seg 的選項、停在這裡）不在這裡：
+   1. 文字次要鈕＝button.link（語言、紀錄、返回、認輸、幫我挑對手）、button.secondary（看整盤排列、回首頁、取消、改名、刪除、加帳號、對話框的次要鈕）、
+      button.chip（帳號鈕）：看得到的是 32px 高的藥丸（::after：1px --line 框、--surface 底、沒有陰影），13px、600 粗、--ink-2 色
+   2. 圖示鈕＝button.icon-btn（齒輪、眼睛）：看得到的是 36px 的圓（::after，框、底、陰影都跟文字鈕一樣）
+   點的範圍＝按鈕本身，至少 44×44、透明；看得到的形狀畫在 ::after（isolation 讓它在字的後面）。
+   狀態兩種一樣：滑鼠移上去形狀填 --tint、按下去變淡、鍵盤焦點的外框畫在看得到的形狀上。
+   「幫我挑對手」在卡片標題旁邊，不畫藥丸（見 .lvl-head）：框線藥丸會跟標題搶，像標題那一列多了一顆大按鈕 */
+:root { --b2-h: 32px; --b2-hit: 44px; --b2-px: 12px; --ib-d: 36px; }
+button.link, button.secondary, button.chip, button.icon-btn {
+  position: relative; isolation: isolate; min-height: var(--b2-hit); min-width: var(--b2-hit);
+  background: none; border: 0; box-shadow: none; border-radius: 999px; color: var(--ink-2); }
+button.link, button.secondary, button.chip { padding: 0 var(--b2-px); font-size: var(--fs-small); font-weight: 600; line-height: 1.2; white-space: nowrap; }
+button.link::after, button.secondary::after, button.chip::after, button.icon-btn::after {
+  content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: calc(50% - var(--b2-h) / 2); height: var(--b2-h); box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); pointer-events: none; }
+button.icon-btn::after { left: calc(50% - var(--ib-d) / 2); right: auto; width: var(--ib-d); top: calc(50% - var(--ib-d) / 2); height: var(--ib-d); }
+@media (hover: hover) {
+  button.link:not(:disabled):hover::after, button.secondary:not(:disabled):hover::after, button.chip:hover::after, button.icon-btn:hover::after { background: var(--tint); }
+}
+button.link:not(:disabled):active, button.secondary:not(:disabled):active, button.chip:active, button.icon-btn:active { opacity: .7; }
+button.link:focus-visible, button.secondary:focus-visible, button.chip:focus-visible, button.icon-btn:focus-visible { outline: none; }
+button.link:focus-visible::after, button.secondary:focus-visible::after, button.chip:focus-visible::after, button.icon-btn:focus-visible::after { outline: 3px solid var(--focus); outline-offset: 2px; }
 button.big { display: block; width: 100%; min-height: 56px; margin: 4px 0 12px; font-size: 1.25rem; font-weight: 700; background: var(--pri); color: var(--on-pri); letter-spacing: .3em; text-indent: .3em; }
 
 /* ---------- 所有 details 的摺疊箭頭：只用一個 ::after 的 V 形，原生三角形藏起來 ---------- */
@@ -292,7 +313,7 @@ html.tight body[data-page="game"] main {
 /* 上下兩條：顏色標記、名字（下面一行寫紅方／黑方）、輪到的那條加「輪到」小標與框；對方那條紙色稍灰 */
 .side {
   /* overflow hidden：量寬度時（還沒收緊）內容就算太寬也不會把整頁撐寬——手機會因此把整頁縮小、innerHeight 變大，格子就算錯 */
-  position: relative; display: flex; align-items: center; gap: 8px; height: var(--side-h); padding: 0 6px 0 10px; border-radius: 14px; overflow: hidden;
+  position: relative; display: flex; align-items: center; gap: 8px; height: var(--side-h); padding: 0 10px; border-radius: 14px; overflow: hidden;
   background: var(--surface); border: 1px solid var(--line);
 }
 .side.opp { background-color: var(--surface-opp); }
@@ -304,25 +325,24 @@ html.tight body[data-page="game"] main {
 .side .turn { flex: none; font: 700 11.5px/1 var(--font-body); color: var(--turn); border: 1px solid currentColor; border-radius: 999px; padding: 4px 7px; white-space: nowrap; }
 .side .took { margin-left: auto; flex: none; font-size: var(--fs-small); color: var(--ink-2); background: var(--tint); border-radius: 999px; padding: 4px 9px; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .side .took b { color: var(--ink); font-weight: 700; }
-.side-btns { flex: none; display: flex; align-items: center; gap: 6px; }
-.side button.resign { flex: none; min-height: 44px; height: 44px; padding: 0 12px; color: var(--ink); white-space: nowrap; } /* 認輸：一定 ≥ 44 高、字不換行 */
-/* 認輸要長按：不選字、不跳出 iOS 的放大鏡／選單；按著的時候從左到右填滿（--hold 由 app.js 給，照動畫速度、最短 0.6 秒） */
-button.resign { position: relative; overflow: hidden; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
-button.resign::before { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--danger) 26%, transparent); transform-origin: left; transform: scaleX(0); pointer-events: none; }
-button.resign.holding::before { transform: scaleX(1); transition: transform var(--hold, 1000ms) linear; }
+.side-btns { flex: none; display: flex; align-items: center; gap: 4px; } /* 圖示鈕左右各有 4px 透明的點的範圍：看得到的間距＝4＋4＋4 */
+.side button.resign { flex: none; } /* 認輸：文字次要鈕（點的範圍 ≥ 44×44、看得到的藥丸 32 高、字不換行，見「次要按鈕與圖示鈕」） */
+/* 認輸要長按：不選字、不跳出 iOS 的放大鏡／選單；按著的時候從左到右填滿看得到的那顆藥丸（--hold 由 app.js 給，照動畫速度、最短 0.6 秒）。
+   填滿是 ::before：跟藥丸（::after）同一個形狀，用 background-size 從 0 長到 100%（不用 scaleX，圓角才不會被壓扁）；疊在字上面、半透明 */
+button.resign { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+button.resign::before { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - var(--b2-h) / 2); height: var(--b2-h); border-radius: 999px; pointer-events: none;
+  background: linear-gradient(color-mix(in srgb, var(--danger) 26%, transparent), color-mix(in srgb, var(--danger) 26%, transparent)) left / 0% 100% no-repeat; }
+button.resign.holding::before { background-size: 100% 100%; transition: background-size var(--hold, 1000ms) linear; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.side .icon-btn { width: calc(var(--side-h) - 14px); height: calc(var(--side-h) - 14px); }
-html.tight .side { gap: 6px; padding-left: 8px; }
+html.tight .side { gap: 6px; padding-left: 8px; padding-right: 8px; --ib-d: 34px; } /* 緊湊版的條只有 48 高：圖示鈕的圓 34（離條的上下框 6px），點的範圍照樣 44 */
 html.tight .side .who b { font-size: .875rem; }
 html.tight .side .who small { font-size: .6875rem; }
 html.tight .side .took { padding: 3px 7px; }
 html.tight .side .side-btns { gap: 4px; }
-html.tight .side .icon-btn { width: calc(var(--side-h) - 10px); height: calc(var(--side-h) - 10px); }
 html.tight .side button.resign { padding: 0 10px; }
-/* 擠的程度 3：緊湊（間距、顏色標記、設定與眼睛變小；認輸照樣 44 高） */
-.side[data-lv="3"], .side[data-lv="4"] { gap: 4px; padding-left: 6px; padding-right: 4px; --badge: 24px; }
-.side[data-lv="3"] .side-btns, .side[data-lv="4"] .side-btns { gap: 3px; }
-.side[data-lv="3"] .icon-btn, .side[data-lv="4"] .icon-btn { width: 32px; height: 32px; }
+/* 擠的程度 3：緊湊（間距、顏色標記、設定與眼睛的圖變小；認輸、設定、眼睛點的範圍照樣 44×44；右邊留的跟左邊一樣） */
+.side[data-lv="3"], .side[data-lv="4"] { gap: 4px; padding-left: 6px; padding-right: 6px; --badge: 24px; }
+.side[data-lv="3"] .side-btns, .side[data-lv="4"] .side-btns { gap: 0; }
 .side[data-lv="3"] .icon-btn svg, .side[data-lv="4"] .icon-btn svg { width: 18px; height: 18px; }
 .side[data-lv="3"] .took { padding: 3px 6px; }
 .side[data-lv="3"] button.resign, .side[data-lv="4"] button.resign { padding: 0 8px; }
@@ -499,8 +519,7 @@ button.intel-head:focus-visible { outline-offset: -3px; }
 .intel[data-mode="hid"] .intel-row.zero > * { opacity: .72; } /* 0 的那列變淡，但字還讀得出來（b01 量：字對棋子面的對比 ≥ 3） */
 .intel[data-mode="hid"] .intel-row.zero .n-hid { opacity: .6; }
 /* 眼睛：隱藏情報的開關；設定：齒輪 */
-button.icon-btn { flex: none; min-height: 0; width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
-  background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--raise); border-radius: 999px; }
+button.icon-btn { flex: none; width: var(--b2-hit); height: var(--b2-hit); padding: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--ink); } /* 樣子見「次要按鈕與圖示鈕」 */
 button.icon-btn .slash { display: none; }
 button.icon-btn[aria-pressed="true"] .slash { display: inline; }
 
@@ -513,7 +532,12 @@ button.icon-btn[aria-pressed="true"] .slash { display: inline; }
 .trio .back-mini::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 1px solid var(--back-ring); }
 
 /* ---------- 設定頁 ---------- */
-.topbar-btns { display: flex; align-items: center; gap: 8px; }
+/* 開始頁的標題那一列：320 寬、漆器、英文（Banqi 字距 .32em）時原本放不下、把整頁撐寬 15px。
+   拿掉標題最後一個字後面多出來的字距、間距 8 → 4（space-between，寬的畫面一樣分開）；比 360 窄時漆器的標題字距 .32em → .2em */
+#start .topbar { gap: 4px; }
+#start .topbar h1 { margin-right: calc(-1 * var(--title-ls)); }
+@media (max-width: 359px) { :root[data-theme="lacquer"] #start .topbar h1 { --title-ls: .2em; } }
+.topbar-btns { display: flex; align-items: center; gap: 4px; } /* 齒輪左右各有 4px 透明的點的範圍：看得到的間距＝8（320 寬英文的標題那一列才放得下） */
 .set-title { flex: 1; text-align: center; font-size: 1.5rem; }
 .topbar-spacer { width: 72px; flex: none; }
 button.link.back { min-width: 72px; min-height: 44px; }
@@ -553,14 +577,13 @@ button.link.back { min-width: 72px; min-height: 44px; }
 .seg .sample { display: block; font-size: 1.375rem; line-height: 1.2; margin-top: 2px; }
 /* ---------- 開始頁的帳號與紀錄（第二步 b-2） ---------- */
 .start-acts { display: flex; align-items: center; gap: 8px; margin: -6px 0 12px; }
-button.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 14px 4px 10px; border-radius: 999px; background: var(--surface); color: var(--ink);
-  border: 1px solid var(--line); box-shadow: var(--raise); font-weight: 700; max-width: 60%; }
+button.chip { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px 0 10px; max-width: 60%; } /* 樣子＝文字次要鈕；名字用 --ink（徽章與分數 --ink-2） */
 button.chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 積分那一批：帳號鈕後面接徽章與積分（「銀 1087」）。名字太長時先切名字，徽章與分數不切；鈕最寬到紀錄鈕前面 */
 button.chip { max-width: none; min-width: 0; flex: 0 1 auto; }
-button.chip #profileName { min-width: 0; }
+button.chip #profileName { min-width: 0; color: var(--ink); }
 button.chip .chip-rt { flex: none; overflow: visible; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.start-acts button.link { min-height: 44px; margin-left: auto; flex: none; }
+.start-acts button.link { margin-left: auto; flex: none; }
 
 /* ---------- 紀錄頁 ---------- */
 .rec-who { margin: 0 0 8px; font-weight: 700; color: var(--ink-2); overflow-wrap: anywhere; }
@@ -591,6 +614,17 @@ button.chip .chip-rt { flex: none; overflow: visible; font-weight: 600; color: v
   .rec-table th, .rec-table td { padding-top: 2px; padding-bottom: 2px; }
   .rec-more { margin-top: 6px; }
   .rec-rating { margin-bottom: 4px; }
+}
+/* 矮的畫面（320×568）：紀錄頁最下面多了收起來的「成就」那一塊（約 52px）：表的字小一號、每格上下 1px，上面幾行與摺疊的幾塊之間少留一點，整頁還是一個畫面 */
+@media (max-height: 600px) {
+  .rec-table { font-size: var(--fs-small); }
+  .rec-table th, .rec-table td { padding-top: 1px; padding-bottom: 1px; }
+  .rec-more { margin-top: 4px; }
+  .rec-rating { margin-bottom: 2px; }
+  #records .topbar { margin-bottom: 6px; }
+  #records .seg { margin-bottom: 6px; }
+  .rec-who { margin-bottom: 4px; }
+  #records .note { margin-top: 2px; line-height: 1.35; }
 }
 .rec-recent .rec-delta { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rec-recent .rec-delta.up { color: var(--accent); }
@@ -630,6 +664,31 @@ button.danger:disabled { opacity: .45; }
 @media (max-height: 480px) { .end-rating span { display: inline; } .end-rating .er-badge { margin-left: .5em; } }
 .end-overlay.revealed .end-card .end-rating span { display: inline; }
 .end-overlay.revealed .end-card .end-rating .er-badge { margin-left: .5em; }
+/* 結算卡：這一盤新解鎖的成就（三個以內一個一行；做法同上面的積分那一行：矮的畫面併成一行）。攤開以後的結果條收起來（跟記到紀錄那一行一樣，卡上已經看過） */
+.end-ach { font-size: var(--fs-small); font-weight: 700; color: var(--accent); margin-top: -6px !important; line-height: 1.35 !important; overflow-wrap: anywhere; }
+.end-ach span { display: block; }
+/* 矮的畫面（手機橫放）：有成就那一行時卡放寬、三顆按鈕排成一列，整張卡才放得下（畫面是寬的） */
+@media (max-height: 480px) {
+  .end-ach span { display: inline; }
+  .end-ach span + span { margin-left: .5em; }
+  .end-card.has-ach { max-width: 560px; }
+  .end-card.has-ach .end-btns { flex-direction: row; }
+  .end-card.has-ach .end-btns button { flex: 1; }
+}
+.end-overlay.revealed #endAch { display: none; }
+
+/* 紀錄頁的「成就」：解鎖的亮（左邊一條強調色、名字粗、解鎖日期），還沒解鎖的灰（虛線框、淡字） */
+.ach-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ach-item { display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: var(--fs-small); line-height: 1.35; overflow-wrap: anywhere; }
+.ach-item.got { background: var(--tint); box-shadow: inset 3px 0 0 var(--accent); }
+.ach-item.locked { border-style: dashed; color: var(--ink-2); opacity: .75; }
+.ach-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
+.ach-item .ach-name { font-size: .875rem; }
+.ach-item.got .ach-name { color: var(--accent); }
+.ach-item.locked .ach-name { font-weight: 600; }
+.ach-date { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ach-flavor { color: var(--accent); }
+@media (min-width: 560px) { .ach-list { display: grid; grid-template-columns: 1fr 1fr; } }
 
 /* 授權卡 */
 /* 設定頁的授權卡：<details> 預設收起，樣式照開始頁的規則卡；摘要至少 44px 高，箭頭由全站的 summary 樣式負責 */
@@ -700,7 +759,16 @@ html.has-safe-top .safe-top-cover { height: calc(env(safe-area-inset-top, 0px) +
 .lvl-note > .ghost { visibility: hidden; }
 .lvl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; }
 .lvl-head h2 { margin: 0; }
-.lvl-head button.link { flex: none; min-height: 44px; margin: -11px 0; }
+/* 「幫我挑對手」＝文字次要鈕（button.link）裡唯一不畫藥丸的（作者 2026-10-25）：在卡片標題旁邊，只有 accent 色的小字＋14px 準星圖示。
+   點的範圍照樣 44×44（透明的 padding）：上下的負 margin 讓它在這一列只佔 16px（比標題矮，這一列不會變高）、跟標題的字置中；
+   右邊的負 margin（比卡片的 padding 小）讓看得到的圖示與字對齊卡片內緣，點的範圍伸進 padding 裡、離卡片的框還有 6px 以上。
+   滑鼠移上去字加底線（沒有形狀可以填）；按下去變淡、焦點外框（畫在 ::after，＝字外面一圈）跟別的次要鈕一樣 */
+.lvl-head button.rec-btn { flex: none; display: inline-flex; align-items: center; gap: 5px;
+  margin: -14px -6px -14px 0; padding: 0 6px; color: var(--accent); }
+.lvl-head button.rec-btn:not(:disabled)::after, .lvl-head button.rec-btn:not(:disabled):hover::after { border-color: transparent; background: none; }
+.lvl-head .rec-ico { flex: none; width: 14px; height: 14px; }
+.lvl-head .rec-lbl { text-underline-offset: 3px; text-decoration-thickness: 1px; }
+@media (hover: hover) { .lvl-head button.rec-btn:hover .rec-lbl { text-decoration-line: underline; } }
 .lvl-tick.sj { width: 10px; height: 10px; opacity: 1; background: radial-gradient(circle at 35% 35%, var(--gold-2), var(--gold-1) 70%); box-shadow: 0 0 0 2px var(--lq-1); }
 .lvl-tick.sj.on { box-shadow: 0 0 0 2px var(--lq-1), 0 0 6px 2px rgba(242, 196, 90, .6); }
 .lvl-stop.sj { overflow: visible; padding-top: 3px; display: flex; justify-content: center; align-items: flex-start; }

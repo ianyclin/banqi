@@ -717,12 +717,13 @@
 
   var HOP_RE = /^([-~])([a-d][1-8])(?:\(([KGMRNCPkgmrncp])\))?/;
 
-  // 一手的文字 → 依序套用。回傳新狀態。
-  function applyNotation(s, tok, isLast) {
+  // 一手的文字 → 依序套用。回傳新狀態。evs（陣列，可省略）：這一手每一下 applyMove 的事件依序接在後面（成就用，見 decodeRecord 的 onMove）
+  function applyNotation(s, tok, isLast, evs) {
     var m = /^([a-d][1-8])\(([KGMRNCPkgmrncp])\)$/.exec(tok);
     if (m) {
       var r = applyMove(s, { type: 'flip', sq: parseSquare(m[1]) });
       if (r.events[0].piece !== m[2]) throw new Error('棋譜和開局排法不符：' + tok);
+      if (evs) evs.push.apply(evs, r.events);
       return r.state;
     }
     var open = false;
@@ -745,6 +746,7 @@
       if (type !== 'attack' && h[1] === '~') throw new Error('~ 只用在攻擊暗子失敗：' + tok);
       if (type === 'move' && (hops > 0 || rest.length)) throw new Error('走到空格只能單獨一步：' + tok);
       var res = applyMove(s, { type: type, from: from, to: to });
+      if (evs) evs.push.apply(evs, res.events);
       if (type === 'attack') {
         var ev = res.events[0];
         if (ev.revealed !== h[3]) throw new Error('棋譜和開局排法不符：' + tok);
@@ -754,12 +756,14 @@
       if (rest.length && (s.turn !== mover || !s.chain)) throw new Error('連吃已經結束，後面還有：' + tok);
     }
     if (s.chain && s.turn === mover) {
-      if (!open) s = applyMove(s, { type: 'stop' }).state;
+      if (!open) { var st = applyMove(s, { type: 'stop' }); s = st.state; if (evs) evs.push.apply(evs, st.events); }
     } else if (open) throw new Error('標了 + 但連吃已經結束：' + tok);
     return s;
   }
 
-  function decodeRecord(text) {
+  // onMove（可省略）：每一手（一個人走一次，連吃整串算一手，規則 12）套用完呼叫一次 onMove({ player 走的那一位 0|1, events 這一手的事件, state 這一手以後的狀態 })；
+  // 最後一手是沒結束的連吃（+）時也呼叫（events 只有已經走的那幾下）。不改變重播與丟錯的行為
+  function decodeRecord(text, onMove) {
     var tags = {}, toks = [];
     String(text).split(/\r?\n/).forEach(function (line) {
       line = line.trim();
@@ -776,7 +780,11 @@
     if (tags.NoChase && tags.NoChase[0] !== '0' && tags.NoChase[0] !== '1') throw new Error('[NoChase] 只能是 "0" 或 "1"');
     var s = newGame({ mode: tags.Mode ? tags.Mode[0] : 'classic', drawPlies: tags.DrawPlies ? Number(tags.DrawPlies[0]) : DEFAULT_DRAW_PLIES,
       noChase: !!tags.NoChase && tags.NoChase[0] === '1', layout: tags.Layout[0] });
-    toks.forEach(function (tok, k) { s = applyNotation(s, tok, k === toks.length - 1); });
+    toks.forEach(function (tok, k) {
+      var evs = onMove ? [] : null, mover = s.turn;
+      s = applyNotation(s, tok, k === toks.length - 1, evs);
+      if (onMove) onMove({ player: mover, events: evs, state: s });
+    });
     if (tags.Result && tags.Result[1] === 'resign') {
       // 認輸不是重播判得出來的結果：只有重播完還沒結果時才收，第一個值是勝方（同其他原因），輸的是另一方（規格 16.2）
       var w = tags.Result[0] === 'first' ? 0 : tags.Result[0] === 'second' ? 1 : null;

@@ -22,7 +22,7 @@
 <!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
 <link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
 <!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
-<script>var BANQI_VERSION = 'v0.1.7'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+<script>var BANQI_VERSION = 'v0.1.8'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
 function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
 document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
 </head>
@@ -80,8 +80,10 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
          底下是原生的 range（鍵盤左右／Home／End、讀屏念 aria-valuetext＝等級名）；手指與滑鼠由 app.js 自己接：
          只有橫著拖圓子、或點一格才會換，從滑桿上開始往上下滑照樣捲頁面 -->
     <div class="card" id="levelCard" hidden>
-      <!-- 標題那一列右邊「幫我挑對手」：照這個帳號在現在選的玩法的積分挑等級（rating.js 的 recommendLevel） -->
-      <div class="lvl-head"><h2 id="hLevel" data-i18n="start.level"></h2><button type="button" id="recBtn" class="link" data-i18n="start.recommend"></button></div>
+      <!-- 標題那一列右邊「幫我挑對手」：照這個帳號在現在選的玩法的積分挑等級（rating.js 的 recommendLevel）。
+           次要動作的樣子（作者 2026-10-25）：沒有框、accent 色小字＋準星小圖示；看得到的字放在 .rec-lbl（data-i18n 換字不會蓋掉圖示）；
+           英文看得到的是短的「Suggest level」，完整一句放 title（讀屏當說明念） -->
+      <div class="lvl-head"><h2 id="hLevel" data-i18n="start.level"></h2><button type="button" id="recBtn" class="link rec-btn" data-i18n-attr="title:start.recommendFull"><svg class="rec-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><path d="M8 .8v3M8 12.2v3M.8 8h3M12.2 8h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span class="rec-lbl" data-i18n="start.recommend"></span></button></div>
       <p class="lvl-name" id="lvlName" aria-hidden="true"></p>
       <!-- 大字底下一行小字「對手 N 分」（現在選的玩法）；選到神將（第 7 級）時後面接「· 每步推演百萬局面…」。
            #lvlNoteGhost 是看不見的神將那一句（同一格疊在下面）：這一行的高度一直是神將那一句的高度（窄的畫面換成兩行也一樣），換等級時滑桿不會上下跳 -->
@@ -315,6 +317,8 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
     <p id="endRevealNote" class="note" data-i18n="end.revealNote" hidden></p>
     <!-- 計分的盤：積分的變化（第一行）、徽章換了（第二行） -->
     <p id="endRating" class="end-rating" hidden></p>
+    <!-- 這一盤新解鎖的成就（app.js renderEnd）：三個以內一個一行，超過三個併成一行 -->
+    <p id="endAch" class="end-ach" hidden></p>
     <p id="endRecord" class="note end-record" hidden></p>
     <div class="end-btns">
       <button type="button" id="revealBtn" class="secondary" data-i18n="end.reveal"></button>

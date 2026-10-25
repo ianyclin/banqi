@@ -16,7 +16,7 @@
  * （有 MessageChannel 的 port 就回 port，沒有就回給發訊息的那個頁面）。
  */
 /* eslint-env serviceworker */
-var BANQI_VERSION = 'v0.1.7';
+var BANQI_VERSION = 'v0.1.8';
 var CACHE_PREFIX = 'banqi-';
 var CACHE = CACHE_PREFIX + BANQI_VERSION;
 

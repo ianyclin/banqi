@@ -995,6 +995,7 @@
     renderEnd();
     $('endOverlay').hidden = false;
     $('againBtn').focus();
+    if (G.lastAch.length) $('srLive').textContent = achLines().join(' '); // 讀屏：新解鎖的成就念一次
   }
 
   function renderEnd() {
@@ -1040,6 +1041,12 @@
         er.appendChild(bl);
       }
     }
+    // 這一盤新解鎖的成就：三個以內一個一行「解鎖成就：連吃三子」，超過三個併成一行「解鎖 4 個成就：…」（矮的畫面、攤開以後的寫法見 style.css .end-ach）
+    var ea = $('endAch');
+    ea.textContent = '';
+    ea.hidden = !achLines().length;
+    document.querySelector('#endOverlay .end-card').classList.toggle('has-ach', !ea.hidden);
+    achLines().forEach(function (line) { ea.appendChild(cellEl('span', null, line)); });
     $('endRecord').hidden = !lr;
     if (lr) $('endRecord').textContent = t('end.recorded', { name: pr ? pr.name : '', line: recLine(lr) });
     $('endRevealNote').hidden = !G.revealed;
@@ -1258,6 +1265,7 @@
   }
   function recordGame(res) {
     G.lastBadge = null;
+    G.lastAch = [];
     if (!G.gameTs || !G.pid) return null;
     var ex = GS.find(G.gameTs);
     if (ex && ex.at !== G.recAt) return null; // 同一盤在別的視窗已經記過
@@ -1266,11 +1274,26 @@
       color: G.state.colors[G.me] || null, result: res.winner === null ? 'draw' : res.winner === G.me ? 'win' : 'loss',
       reason: res.reason, plies: G.state.ply, drawPlies: G.state.drawPlies
     };
+    GS.achSync(rec.pid); // 成就：先靜靜補上別的視窗下完的盤讓它成立的，結算卡只寫這一盤讓它成立的
     var x = settleRec(rec, ex);
     if (!GS.upsert(rec)) return null;
     if (x) { GS.setRating(rec.pid, rec.mode, x.entry); G.lastBadge = { from: x.badgeBefore, to: x.entry.badge }; }
     G.recAt = rec.at;
+    G.lastAch = settleAch(rec, G.record, G.me);
     return rec;
+  }
+  // 成就（stats.js 的「成就」那一段）：跟積分同一個時候算一次，紀錄已經記好、積分已經寫回帳號以後。
+  // record＝這一盤的棋譜（引擎的 encodeRecord），me＝這個帳號是哪一位；回傳這一盤新解鎖的成就 id
+  function settleAch(rec, record, me) {
+    var extra = {};
+    GS.achFromFacts(rec, record ? GS.achFacts(record, me) : null).forEach(function (id) { extra[id] = rec.at; });
+    return GS.achSync(rec.pid, extra, rec.at);
+  }
+  var ACH_ROWS = 3; // 結算卡：超過這麼多個成就就併成一行
+  function achLines() {
+    var ids = G.lastAch || [];
+    if (ids.length > ACH_ROWS) return [t('end.achMany', { n: ids.length, names: ids.map(function (id) { return t('ach.' + id); }).join(t('end.achSep')) })];
+    return ids.map(function (id) { return t('end.ach', { name: t('ach.' + id) }); });
   }
   // 積分（rating.js）：每盤只在第一次結束時算一次（照五子棋：同一個 ts 先前的紀錄已經有 elo 就照抄、不再算）。
   // 只有跟電腦下、認得的等級才算（兩人同機、之後的版本的等級＝rateGame 回 null）。算了就把 elo 放進 rec，回傳 rateGame 的結果（呼叫的人記好紀錄再寫回帳號）
@@ -1298,7 +1321,7 @@
     var rt = ratingOf(p, mode), pk = GS.peak(list, mode);
     body.appendChild(cellEl('p', 'rec-rating', t('records.rating', { badge: badgeName(rt.badge), rating: rt.r, n: rt.games,
       peak: rt.games || pk !== null ? Math.max(rt.r, pk === null ? rt.r : pk) : '—' })));
-    if (!sm.total.n) { body.appendChild(cellEl('p', 'note rec-empty', t('records.empty'))); return; }
+    if (!sm.total.n) { body.appendChild(cellEl('p', 'note rec-empty', t('records.empty'))); body.appendChild(achDetails(p)); return; }
     function pct(r) { var v = GS.winRate(r); return v === null ? '—' : Math.round(v * 100) + '%'; }
     var tb = cellEl('table', 'rec-table'), th = cellEl('tr');
     ['records.opp', 'records.n', 'records.w', 'records.d', 'records.l', 'records.rate'].forEach(function (k) { th.appendChild(cellEl('th', null, t(k))); });
@@ -1351,8 +1374,35 @@
       ul.appendChild(li);
     });
     dl.appendChild(ul);
+    body.appendChild(achDetails(p));
   }
-  var recOpen = { reasons: false, recent: false };
+  // 紀錄頁最下面的「成就（已解鎖 n／18）」：收起來的一塊（跟結束原因、最近的盤同一種樣子）。成就是每個帳號一份，不分玩法。
+  // 解鎖的亮（名字、條件、解鎖日期 YYYY-MM-DD；天蓬元帥多一句），還沒解鎖的灰（讀屏多念「未解鎖」）
+  function achDetails(p) {
+    var items = GS.achList(p.id), n = items.filter(function (x) { return x.at; }).length;
+    var d = cellEl('details', 'card rec-more rec-ach');
+    d.id = 'recMore-ach';
+    d.open = !!recOpen.ach;
+    d.addEventListener('toggle', function () { recOpen.ach = d.open; });
+    d.appendChild(cellEl('summary', null, t('records.ach', { n: n, all: items.length })));
+    var ul = cellEl('ul', 'ach-list');
+    items.forEach(function (x) {
+      var li = cellEl('li', 'ach-item ' + (x.at ? 'got' : 'locked'));
+      li.setAttribute('data-ach', x.id);
+      var head = cellEl('div', 'ach-head');
+      if (!x.at) head.appendChild(cellEl('span', 'sr-only', t('ach.lockedSr')));
+      head.appendChild(cellEl('b', 'ach-name', t('ach.' + x.id)));
+      if (x.at) head.appendChild(cellEl('span', 'ach-date', t('ach.on', { date: ymd(x.at) })));
+      li.appendChild(head);
+      li.appendChild(cellEl('span', 'ach-how', t('ach.' + x.id + '.how', { n: GS.LEVELS.length })));
+      if (x.at && x.id === 'tianpeng') li.appendChild(cellEl('span', 'ach-flavor', t('ach.tianpeng.flavor')));
+      ul.appendChild(li);
+    });
+    d.appendChild(ul);
+    return d;
+  }
+  function ymd(at) { var d = new Date(at); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  var recOpen = { reasons: false, recent: false, ach: false };
   function openRecords() { showPage('records'); renderRecords(); $('recBack').focus({ preventScroll: true }); }
 
   // ------------------------------------------------------------ 接著下（第二步 b-2；照五子棋的 gomoku.resume.v1）
@@ -1433,9 +1483,13 @@
     if (GS.find(o.ts)) return null;
     var rec = { ts: o.ts, at: Date.now(), pid: o.pid, mode: st.mode, opp: 'ai', level: o.level, color: st.colors[o.me] || null,
       result: 'loss', reason: 'resign', abandon: true, plies: st.ply, drawPlies: st.drawPlies };
+    GS.achSync(rec.pid);
     var x = settleRec(rec, null);
     if (!GS.upsert(rec)) return null;
     if (x) GS.setRating(rec.pid, rec.mode, x.entry);
+    var rtxt = null;
+    try { rtxt = E.encodeRecord(st); } catch (e) { rtxt = null; }
+    settleAch(rec, rtxt, o.me); // 放棄算輸：照輸棋看（沒有結算卡，解鎖的靜靜記下）
     renderProfileBtn();
     return rec;
   }
@@ -2159,6 +2213,7 @@
   function init() {
     G.set = readSettings();
     GS.initProfiles(t('profile.defaultName')); // 第一次開：建預設帳號（名字用現在的語言）
+    GS.profileList().forEach(function (p) { GS.achSync(p.id); }); // 成就：照現有的紀錄回推（開新版第一次開頁、別的視窗下完的盤），不出結算卡那一行
     G.colMode = G.set.colDefault;
     applyLook();
     if (MQ) {
