@@ -1660,13 +1660,16 @@
     var b = document.createElement('span'); b.className = 'sj-t'; b.textContent = t('ai.level7'); // span：上方那條的 .who b 有自己的字級
     return b;
   }
-  // 印章「百萬」（白文）：朱色直式長方印（寬：高＝0.56：1）、字是紙色；「百」在上、「萬」在下（2026-10-25 改：左右排由右往左讀，現代讀者會讀成「萬百」）。裝飾用，讀屏不念
+  // 印章「百萬」（朱文，作者 2026-10-25 改：原本是白文＝紅底白字）：字是朱色、外面一圈朱色細框（手刻的樣子，邊稍微不平），裡面不塗底（透明）。
+  // 直式長方（寬：高＝0.56：1），「百」在上、「萬」在下。字型照舊是 Yuji Syuku 的 #sj-B／#sj-W；字另外描一圈同色的細邊，小尺寸時筆畫才不會太細。
+  // 顏色 --seal（style.css）：印章一律落在黑漆／暗幕上（開場字卡的暗幕、結算卡的黑漆標題帶），用比較亮的朱色才看得清楚。裝飾用，讀屏不念
+  var SEAL_FRAME = 'M30 33L182 27L381 34L528 29L535 300L528 642L532 969L380 976L171 967L27 972L23 650L32 322Z';
   function sealSvg() {
     var svg = svgEl('svg', { 'class': 'sj-seal', viewBox: '0 0 560 1000', 'aria-hidden': 'true', focusable: 'false' });
-    svg.appendChild(svgEl('rect', { x: '15', y: '15', width: '530', height: '970', rx: '50', style: 'fill: var(--seal)' }));
-    var g = svgEl('g', { style: 'fill: var(--seal-ink)' });
-    g.appendChild(svgEl('use', { href: '#sj-B', transform: 'translate(45 38) scale(.47)' }));
-    g.appendChild(svgEl('use', { href: '#sj-W', transform: 'translate(45 492) scale(.47)' }));
+    svg.appendChild(svgEl('path', { 'class': 'sj-seal-frame', d: SEAL_FRAME, fill: 'none', style: 'stroke: var(--seal)', 'stroke-width': '30', 'stroke-linejoin': 'round' }));
+    var g = svgEl('g', { 'class': 'sj-seal-ink', style: 'fill: var(--seal); stroke: var(--seal)', 'stroke-width': '14', 'stroke-linejoin': 'round' });
+    g.appendChild(svgEl('use', { href: '#sj-B', transform: 'translate(55 48) scale(.45)' }));
+    g.appendChild(svgEl('use', { href: '#sj-W', transform: 'translate(55 502) scale(.45)' }));
     svg.appendChild(g);
     return svg;
   }

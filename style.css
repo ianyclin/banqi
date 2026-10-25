@@ -654,7 +654,7 @@ html.has-safe-top .safe-top-cover { height: calc(env(safe-area-inset-top, 0px) +
 :root {
   --lq-1: #1d1a17; --lq-2: #3a332c; --gold-1: #c9a44a; --gold-2: #f2d27a; --gold-3: #d9b45a;
   --tg-off-1: #625c55; --tg-off-2: #5a544d; --tg-off-ink: #ece0bb; --tg-off-edge: #4d4842;
-  --seal: #c23b22; --seal-ink: #fbf1dd;
+  --seal: #f2603e; /* 百萬印（朱文）的朱色：印章都落在黑漆／暗幕上，亮一點的朱色對比才夠（量過 ≥ 4.5:1） */
 }
 :root[data-scheme="dark"] { --tg-off-1: #3c3732; --tg-off-2: #35312c; --tg-off-ink: #bba673; --tg-off-edge: #5a5040; }
 .sj-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
@@ -662,7 +662,7 @@ html.has-safe-top .safe-top-cover { height: calc(env(safe-area-inset-top, 0px) +
 .sj-t { font-family: var(--font-title); font-weight: 700; letter-spacing: .02em; white-space: nowrap;
   background: linear-gradient(180deg, var(--gold-2) 0%, var(--gold-1) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
 .sj-star { flex: none; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--gold-2), var(--gold-1) 70%); box-shadow: 0 0 3px rgba(242, 196, 90, .6); }
-/* 印章「百萬」（白文：朱色直式長方印，字是紙色；「百」在上、「萬」在下） */
+/* 印章「百萬」（朱文：朱色的字＋朱色細框、裡面透明；直式，「百」在上、「萬」在下） */
 .sj-seal { display: block; flex: none; overflow: visible; }
 
 /* 1. 開始頁的等級滑桿：神將那一格的格點＝金點黑圈；格下＝黑漆金字小牌（沒選＝淡黑漆暗金字、選到＝深黑漆亮金字＋金框＋淡金光）。
