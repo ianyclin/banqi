@@ -154,7 +154,10 @@
     if (MODES.indexOf(mode) < 0) throw new Error('mode 只能是 classic 或 chain：' + mode);
     var drawPlies = opts.drawPlies === undefined ? DEFAULT_DRAW_PLIES : opts.drawPlies;
     if (DRAW_PLIES.indexOf(drawPlies) < 0) throw new Error('drawPlies 只能是 30、40、50、60：' + drawPlies);
-    return { mode: mode, drawPlies: drawPlies };
+    // 禁止長捉（規格 8.5）：選項，預設關
+    var noChase = opts.noChase === undefined ? false : opts.noChase;
+    if (noChase !== true && noChase !== false) throw new Error('noChase 只能是 true 或 false：' + noChase);
+    return { mode: mode, drawPlies: drawPlies, noChase: noChase };
   }
 
   function checkLayout(layout) {
@@ -171,7 +174,7 @@
     return arr.slice();
   }
 
-  // opts：{ mode, drawPlies, rng, layout }。layout（32 字的字串或陣列，a1 b1 c1 d1 a2 … d8）只給重播與測試用。
+  // opts：{ mode, drawPlies, noChase, rng, layout }。layout（32 字的字串或陣列，a1 b1 c1 d1 a2 … d8）只給重播與測試用。
   function newGame(opts) {
     opts = opts || {};
     var o = checkOptions(opts);
@@ -181,6 +184,7 @@
     var s = {
       mode: o.mode,
       drawPlies: o.drawPlies,
+      noChase: o.noChase,
       board: board,
       turn: 0,
       colors: [null, null],
@@ -200,7 +204,7 @@
 
   // 測試與題目用：直接擺一個局面。cells：{ a1: 'K', b2: '?p', … }；'?x' 是真實身分為 x 的暗子，沒寫的格子是空的。
   // 不在盤上的子一律當作已被吃（照 ALL_PIECES 順序），所以子數守恆。
-  // opts：{ mode, drawPlies, turn 0|1, colors ['r','b']（有明子或少於 32 個暗子時不能是 null）, quietPlies, ply }
+  // opts：{ mode, drawPlies, noChase, turn 0|1, colors ['r','b']（有明子或少於 32 個暗子時不能是 null）, quietPlies, ply }
   function fromBoard(cells, opts) {
     opts = opts || {};
     var o = checkOptions(opts);
@@ -237,6 +241,7 @@
     var s = {
       mode: o.mode,
       drawPlies: o.drawPlies,
+      noChase: o.noChase,
       board: board,
       turn: turn,
       colors: colors,
@@ -293,8 +298,127 @@
     }
   }
 
-  // 只讀公開欄位（board、turn、colors、mode、chain、result），所以 publicView 也能直接用
+  // 只讀公開欄位（board、turn、colors、mode、chain、result、noChase、seen），所以 publicView 也能直接用。
+  // 開了禁止長捉（規格 8.5）時，被禁的走子不在裡面（被禁的另外用 forbiddenSteps 問得到）
   function legalMoves(s) {
+    var out = rawLegalMoves(s);
+    if (!s.noChase || s.chain || !out.length) return out;
+    return out.filter(function (m) { return m.type !== 'move' || !isForbiddenStep(s, m.from, m.to); });
+  }
+
+  // ------------------------------------------------------------ 禁止長捉（規格 8.5）
+  // 全部只看公開資訊：盤面、輪到誰、顏色、盤面紀錄 seen。每一手是不是「捉」由 seen 裡前後兩個盤面就算得出來
+  // （同一段紀錄裡每一手都是走一格到空格，見 8.5.6），所以不另外存每一手的旗標。
+
+  // col 色在棋盤 b 上所有吃「對方明子」的步：每一步記成 from*32+to。走步吃照子力、炮跳吃不看子力；
+  // 不含攻擊暗子（8.5.2：攻擊暗子不算）；連吃玩法也一樣只看第一下（8.5.2）。
+  function faceCaptures(b, col) {
+    var out = [], i, k, a, t, to;
+    for (i = 0; i < N; i++) {
+      a = b[i];
+      if (a === null || a === HIDDEN || colorOf(a) !== col) continue;
+      if (typeOf(a) === 'C') {
+        for (k = 0; k < 4; k++) {
+          var ray = RAYS[i][k], j = 0;
+          while (j < ray.length && b[ray[j]] === null) j++;
+          j++;
+          while (j < ray.length && b[ray[j]] === null) j++;
+          if (j >= ray.length) continue;
+          to = ray[j]; t = b[to];
+          if (t !== HIDDEN && colorOf(t) !== col) out.push(i * 32 + to);
+        }
+        continue;
+      }
+      var nb = NEIGHBORS[i];
+      for (k = 0; k < nb.length; k++) {
+        to = nb[k]; t = b[to];
+        if (t !== null && t !== HIDDEN && colorOf(t) !== col && canStepCapture(a, t)) out.push(i * 32 + to);
+      }
+    }
+    return out;
+  }
+
+  // col 色在 b 上從 from 吃 to 以後，對方能不能吃回 to 那一格（8.5.2 的「有保護」；炮跳吃也算保護）
+  function recapturable(b, from, to, col) {
+    var c = b.slice();
+    c[to] = c[from]; c[from] = null;
+    var list = faceCaptures(c, otherColor(col));
+    for (var i = 0; i < list.length; i++) if (list[i] % 32 === to) return true;
+    return false;
+  }
+
+  // 8.5.2「捉」：col 色把 from 的子走到空格 to（before → after）。走完以後 col 有一個「新的」吃對方明子的步，而且吃了以後對方吃不回來。
+  // 「新的」：同一個子（走的那一子看它原本的格子）在走之前吃不到同一格的那個子
+  function isChaseStep(before, after, from, to, col) {
+    var now = faceCaptures(after, col), old = faceCaptures(before, col);
+    for (var i = 0; i < now.length; i++) {
+      var a = (now[i] / 32) | 0, t = now[i] % 32, a0 = a === to ? from : a;
+      if (old.indexOf(a0 * 32 + t) >= 0) continue;
+      if (!recapturable(after, a, t, col)) return true;
+    }
+    return false;
+  }
+
+  function boardOfKey(key) {
+    var b = [];
+    for (var i = 0; i < N; i++) { var ch = key.charAt(i); b.push(ch === '.' ? null : ch); }
+    return b;
+  }
+
+  // 盤面紀錄裡相鄰的兩個盤面（k1 → k2）之間那一手是不是「捉」。8.5.6：同一段紀錄裡每一手都是走一格到空格——不是的話就是引擎壞了，丟錯
+  function chaseBetween(k1, k2, colors) {
+    var b1 = boardOfKey(k1), b2 = boardOfKey(k2), from = -1, to = -1, diff = 0;
+    for (var i = 0; i < N; i++) {
+      if (b1[i] === b2[i]) continue;
+      diff++;
+      if (b2[i] === null && b1[i] !== HIDDEN) from = i;
+      else if (b1[i] === null && b2[i] !== HIDDEN) to = i;
+    }
+    var mover = Number(k1.charAt(N)), col = colors[mover];
+    if (diff !== 2 || from < 0 || to < 0 || b1[from] !== b2[to] || NEIGHBORS[from].indexOf(to) < 0 ||
+        Number(k2.charAt(N)) !== 1 - mover || !col || colorOf(b1[from]) !== col) {
+      throw new Error('內部錯誤：盤面紀錄裡相鄰兩個盤面之間不是走一格（規格 8.5.6）：' + k1 + ' → ' + k2);
+    }
+    return isChaseStep(b1, b2, from, to, col);
+  }
+
+  // 8.5.3：輪到的人把 from 走到空格 to，是不是被禁的長捉
+  function isForbiddenStep(s, from, to) {
+    if (!s.noChase || s.chain || !s.seen || !s.seen.length) return false;
+    var after = s.board.slice();
+    after[to] = after[from]; after[from] = null;
+    var key = '';
+    for (var i = 0; i < N; i++) key += after[i] === null ? '.' : after[i];
+    key += String(1 - s.turn);
+    var f = s.seen.indexOf(key);
+    if (f < 0) return false;                                                    // (b) 這一段沒出現過
+    if (!isChaseStep(s.board, after, from, to, s.colors[s.turn])) return false; // (a) 不是捉
+    // (c) 從那個盤面第一次出現到這一步：我每一手都是捉，對方不是每一手都是捉
+    var oppAll = true;
+    for (var k = f; k < s.seen.length - 1; k++) {
+      var mover = Number(s.seen[k].charAt(N)), ch = chaseBetween(s.seen[k], s.seen[k + 1], s.colors);
+      if (mover === s.turn) { if (!ch) return false; }
+      else if (!ch) oppAll = false;
+    }
+    return !oppAll;
+  }
+
+  // 輪到的人走 m（走一格到空格）是不是「捉」（8.5.2）。只看盤面，不看選項開不開、也不看盤面紀錄；不是走子回 false
+  function isChase(s, m) {
+    if (!m || m.type !== 'move' || s.chain || !isLegal(Object.assign({}, s, { noChase: false }), m)) return false;
+    var after = s.board.slice();
+    after[m.to] = after[m.from]; after[m.from] = null;
+    return isChaseStep(s.board, after, m.from, m.to, s.colors[s.turn]);
+  }
+
+  // 被禁的走子（8.5.3）：棋盤上合法、但因為長捉不能走的那些（沒開選項、連吃中、已終局都是空的）。畫面拿來在點到時提示，AI 拿來核對根節點
+  function forbiddenSteps(s) {
+    if (!s.noChase || s.chain) return [];
+    return rawLegalMoves(s).filter(function (m) { return m.type === 'move' && isForbiddenStep(s, m.from, m.to); });
+  }
+
+  // 不看禁止長捉的合法步（規則 3、4、5、10、11）
+  function rawLegalMoves(s) {
     var out = [];
     if (s.result) return out;
     function push(m) { out.push(m); }
@@ -349,7 +473,8 @@
       var p = b[i];
       if (p === null || p === HIDDEN || colorOf(p) !== col) continue;
       var nb = NEIGHBORS[i];
-      for (var k = 0; k < nb.length; k++) if (b[nb[k]] === null) return true;
+      // 禁止長捉（8.5.4）：被禁的走子不算合法步；只剩被禁的走子就是沒有合法步（6.2）
+      for (var k = 0; k < nb.length; k++) if (b[nb[k]] === null && !(s.noChase && isForbiddenStep(s, i, nb[k]))) return true;
       captureMovesFrom(s, i, col, push);
     }
     return found;
@@ -369,6 +494,7 @@
   }
 
   // 一手走完、換人之後判定。先看輪到的人輸了沒（6），再看和棋（7、8）。見規格 6.4。
+  // 例外（8.5.4）：只因為禁止長捉才沒有合法步（不看這條時還有步）時，先看 7、8，成立就照常和，都不成立才照 6.2 判輸。
   // 對局中剛走完的一方不可能沒子；fromBoard 擺出「沒輪到的一方已經沒子」時也要判（他輸）。
   function computeResult(s) {
     if (s.chain) return null;
@@ -376,7 +502,12 @@
     if (col !== null) {
       if (piecesLeft(s, col) === 0) return makeResult(1 - mover, s, 'noPieces');
       if (piecesLeft(s, otherColor(col)) === 0) return makeResult(mover, s, 'noPieces');
-      if (!hasAnyMove(s)) return makeResult(1 - mover, s, 'noMoves');
+      if (!hasAnyMove(s)) {
+        if (!(s.noChase && hasAnyMove(Object.assign({}, s, { noChase: false })))) return makeResult(1 - mover, s, 'noMoves');
+        if (s.quietPlies >= s.drawPlies) return makeResult(null, s, 'drawPlies');
+        if (countSeen(s, positionKey(s)) >= REPETITION_LIMIT) return makeResult(null, s, 'repetition');
+        return makeResult(1 - mover, s, 'noMoves');
+      }
     }
     if (s.quietPlies >= s.drawPlies) return makeResult(null, s, 'drawPlies');
     if (countSeen(s, positionKey(s)) >= REPETITION_LIMIT) return makeResult(null, s, 'repetition');
@@ -400,6 +531,7 @@
     return {
       mode: s.mode,
       drawPlies: s.drawPlies,
+      noChase: s.noChase,
       board: s.board.slice(),
       turn: s.turn,
       colors: s.colors.slice(),
@@ -523,13 +655,13 @@
 
   // ------------------------------------------------------------ 公開資訊（規則 14）
 
-  var PUBLIC_KEYS = ['mode', 'drawPlies', 'board', 'turn', 'colors', 'pool', 'captured', 'history',
+  var PUBLIC_KEYS = ['mode', 'drawPlies', 'noChase', 'board', 'turn', 'colors', 'pool', 'captured', 'history',
     'quietPlies', 'seen', 'chain', 'ply', 'result'];
 
   // AI 唯一能看的東西：全是新的物件，沒有 secret
   function publicView(s) {
     var v = JSON.parse(JSON.stringify({
-      mode: s.mode, drawPlies: s.drawPlies, board: s.board, turn: s.turn, colors: s.colors, pool: s.pool,
+      mode: s.mode, drawPlies: s.drawPlies, noChase: !!s.noChase, board: s.board, turn: s.turn, colors: s.colors, pool: s.pool,
       captured: s.captured, history: s.history, quietPlies: s.quietPlies, seen: s.seen, chain: s.chain,
       ply: s.ply, result: s.result
     }));
@@ -555,7 +687,7 @@
   }
 
   // ------------------------------------------------------------ 棋譜（規則 16）
-  // [Banqi "1"] [Mode "classic"] [DrawPlies "60"] [Layout "<32 字>"]，接著一回合一行（TCG 2007 的樣子），最後 [Result …]。
+  // [Banqi "1"] [Mode "classic"] [DrawPlies "60"]（禁止長捉開著時再加 [NoChase "1"]）[Layout "<32 字>"]，接著一回合一行（TCG 2007 的樣子），最後 [Result …]。
   // 一手的寫法：b3(n) 翻子；a4-a5 走或吃；a1-a4 炮跳吃；連吃 a2-a3-b3；攻擊暗子成功 a4-a5(n)、失敗 a4~a5(K)；
   // 連吃還沒結束（存檔時）在最後加 +。
 
@@ -563,7 +695,9 @@
 
   function encodeRecord(s) {
     if (!s.secret || !s.secret.layout) throw new Error('沒有開局排法（擺出來的局面或抽樣出來的狀態不能存棋譜）');
-    var lines = ['[Banqi "1"]', '[Mode "' + s.mode + '"]', '[DrawPlies "' + s.drawPlies + '"]', '[Layout "' + s.secret.layout + '"]'];
+    var lines = ['[Banqi "1"]', '[Mode "' + s.mode + '"]', '[DrawPlies "' + s.drawPlies + '"]'];
+    if (s.noChase) lines.push('[NoChase "1"]'); // 禁止長捉（規格 8.5、16.2）：只在開著時寫；沒有這一行＝關
+    lines.push('[Layout "' + s.secret.layout + '"]');
     var toks = s.history.map(function (h) { return h.n; });
     if (s.chain) toks.push(s.chain.n + '+');
     for (var i = 0; i < toks.length; i += 2) {
@@ -631,7 +765,9 @@
     });
     if (!tags.Banqi || tags.Banqi[0] !== '1') throw new Error('不是暗棋棋譜（缺 [Banqi "1"]）');
     if (!tags.Layout) throw new Error('棋譜缺開局排法');
-    var s = newGame({ mode: tags.Mode ? tags.Mode[0] : 'classic', drawPlies: tags.DrawPlies ? Number(tags.DrawPlies[0]) : DEFAULT_DRAW_PLIES, layout: tags.Layout[0] });
+    if (tags.NoChase && tags.NoChase[0] !== '0' && tags.NoChase[0] !== '1') throw new Error('[NoChase] 只能是 "0" 或 "1"');
+    var s = newGame({ mode: tags.Mode ? tags.Mode[0] : 'classic', drawPlies: tags.DrawPlies ? Number(tags.DrawPlies[0]) : DEFAULT_DRAW_PLIES,
+      noChase: !!tags.NoChase && tags.NoChase[0] === '1', layout: tags.Layout[0] });
     toks.forEach(function (tok, k) { s = applyNotation(s, tok, k === toks.length - 1); });
     if (tags.Result && tags.Result[1] === 'resign') {
       // 認輸不是重播判得出來的結果：只有重播完還沒結果時才收，第一個值是勝方（同其他原因），輸的是另一方（規格 16.2）
@@ -654,7 +790,7 @@
     canStepCapture: canStepCapture,
     makeRng: makeRng, defaultRng: defaultRng, randInt: randInt, shuffle: shuffle,
     newGame: newGame, fromBoard: fromBoard, positionKey: positionKey, repetitionCount: repetitionCount,
-    legalMoves: legalMoves, isLegal: isLegal, applyMove: applyMove, applyResign: applyResign, result: result,
+    legalMoves: legalMoves, forbiddenSteps: forbiddenSteps, isChase: isChase, isLegal: isLegal, applyMove: applyMove, applyResign: applyResign, result: result,
     publicView: publicView, sampleHidden: sampleHidden,
     encodeRecord: encodeRecord, decodeRecord: decodeRecord
   };

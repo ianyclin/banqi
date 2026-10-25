@@ -261,8 +261,14 @@ button.good { background: var(--pri); color: var(--on-pri); }
 button.link { background: none; color: var(--accent); border: 1px solid var(--line); box-shadow: none; min-height: 36px; padding: 4px 14px; border-radius: 999px; font-size: var(--fs-small); font-weight: 700; }
 button.big { display: block; width: 100%; min-height: 56px; margin: 4px 0 12px; font-size: 1.25rem; font-weight: 700; background: var(--pri); color: var(--on-pri); letter-spacing: .3em; text-indent: .3em; }
 
+/* ---------- 所有 details 的摺疊箭頭：只用一個 ::after 的 V 形，原生三角形藏起來 ---------- */
+summary { list-style: none; justify-content: space-between; gap: 12px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: ""; flex: none; width: 8px; height: 8px; border: solid var(--ink-2); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-2px, -2px); transition: transform calc(.2s * var(--anim)); }
+details[open] > summary::after { transform: rotate(225deg) translate(-2px, -2px); }
+
 /* ---------- 開始頁的規則 ---------- */
-.rules summary { font-weight: 700; cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.rules summary { font-weight: 700; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
 .rules ul { margin: 8px 0 0; padding-left: 1.2em; line-height: 1.6; font-size: .9375rem; }
 .rules li + li { margin-top: 4px; }
 .rules-sub { font-weight: 700; margin: 12px 0 0; font-size: .9375rem; }
@@ -600,6 +606,8 @@ button.danger:disabled { opacity: .45; }
 .end-record { margin-top: -4px !important; }
 
 /* 授權卡 */
+/* 設定頁的授權卡：<details> 預設收起，樣式照開始頁的規則卡；摘要至少 44px 高，箭頭由全站的 summary 樣式負責 */
+.lic summary { font-weight: 700; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
 .lic-list { margin: 8px 0 0; padding-left: 1.1em; font-size: var(--fs-small); line-height: 1.5; color: var(--ink-2); }
 .lic-list li + li { margin-top: 10px; }
 .lic-list b { color: var(--ink); }

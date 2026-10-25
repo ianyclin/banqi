@@ -2,7 +2,8 @@
  * 暗棋：電腦對手（設計見 README「電腦對手」一節；規則照 docs/rules-spec.md，規則引擎 engine.js 是權威）
  *
  * 只看公開資訊：think／choose 只讀 publicView 的公開欄位（board、pool、captured、colors、turn、chain、
- * quietPlies、drawPlies、seen、mode、result）。傳進完整狀態也一樣只讀這些欄位；暗子的真實身分這個檔案碰不到。
+ * quietPlies、drawPlies、seen、mode、result、noChase）。傳進完整狀態也一樣只讀這些欄位；暗子的真實身分這個檔案碰不到。
+ * 禁止長捉（規格 8.5，選項）：根節點照引擎的 forbiddenSteps 拿掉被禁的走子；搜尋裡面不管這條（近似；置換表不存跟歷史有關的禁手效果）。
  *
  * 搜尋：Expectiminimax。決策節點用 αβ（negamax、fail-soft）；機會節點（翻子；連吃玩法的攻擊暗子）用 Star1
  * （Ballard 1983；照 Hsu 的 TCG 講義的寫法：每個結果的視窗 (A, B)、上下界 m／M），結果是袋子裡每一種子、權重是個數。
@@ -873,7 +874,7 @@
   // 只取公開欄位（傳進完整狀態也一樣只讀這些）
   function publicPart(v) {
     return {
-      mode: v.mode, drawPlies: v.drawPlies, board: v.board, turn: v.turn, colors: v.colors, pool: v.pool,
+      mode: v.mode, drawPlies: v.drawPlies, noChase: v.noChase, board: v.board, turn: v.turn, colors: v.colors, pool: v.pool,
       captured: v.captured, quietPlies: v.quietPlies, seen: v.seen, chain: v.chain, result: v.result, ply: v.ply
     };
   }
@@ -905,10 +906,13 @@
     }
     configure(lv, opts);
     setup(view);
-    checkRoot(legal);
+    // 禁止長捉（規格 8.5）：被禁的走子照引擎的判法從根節點拿掉。內部規則鏡像不管這條，所以核對時把被禁的加回去比。
+    // 只在根節點擋：搜尋裡面不管這條（近似），置換表也就不會存到跟歷史有關的禁手效果
+    var forbMoves = E.forbiddenSteps(view), forb = forbMoves.map(moveKey);
+    checkRoot(forb.length ? legal.concat(forbMoves) : legal);
     var n = genMoves(0, false); // 必敗的攻擊暗子不在這裡（見 genFrom）
     var root = [], i, j;
-    for (i = 0; i < n; i++) root.push(MV[i]);
+    for (i = 0; i < n; i++) if (!forb.length || forb.indexOf(internalKey(MV[i])) < 0) root.push(MV[i]);
     if (root.length === 1) {
       out.move = toEngineMove(root[0], legal); out.reason = 'single'; out.ms = now() - t0;
       return out;

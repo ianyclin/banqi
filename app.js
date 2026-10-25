@@ -21,7 +21,7 @@
   // ------------------------------------------------------------ 對局狀態
   var G = {
     page: 'start',
-    setup: { mode: 'classic', opponent: 'pvp', drawPlies: 60, first: 'me' },
+    setup: { mode: 'classic', opponent: 'pvp', drawPlies: 60, first: 'me', noChase: false },
     state: null,      // 引擎狀態（含暗子身分，只留在記憶體裡）
     me: 0,            // 畫面下方是哪一位（0 先手、1 後手）
     bot: null,        // 電腦是哪一位；兩人同機是 null
@@ -69,9 +69,10 @@
   // ------------------------------------------------------------ 設定（作者 2026-10-24）：全部記在 banqi.settings.v1（語言由 i18n.js 記在同一個鍵的 lang）
   var SETTINGS_KEY = 'banqi.settings.v1';
   // level＝上次選的電腦等級（開始頁；預設 3 初級）
-  var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, anim: 'mid', level: 3 };
+  // noChase＝禁止長捉（規格 8.5；'on'／'off'，預設關）：跟 drawPlies 一樣是開局設定，下一盤才用
+  var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, noChase: 'off', anim: 'mid', level: 3 };
   // level 的選項照 ai.js 的 LEVELS（開始頁的等級滑桿也是；加一級時這裡不用改）
-  var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], anim: ['slow', 'mid', 'fast', 'none'],
+  var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], noChase: ['off', 'on'], anim: ['slow', 'mid', 'fast', 'none'],
     level: AIX.LEVELS.map(function (l) { return l.id; }) };
   // 動畫速度：CSS 的 --anim（所有 transition／animation 的秒數乘它）
   var ANIM = { slow: 1.6, mid: 1, fast: 0.5, none: 0 };
@@ -774,6 +775,8 @@
     if (G.sel !== null) {
       m = findMove(moves, G.sel, sq);
       if (m) { play(m); return; }
+      // 禁止長捉（規格 8.5）：被禁的那一步＝搖一下、提示，不走，選中的子留著
+      if (findMove(E.forbiddenSteps(s), G.sel, sq)) { shake(sq); toast(t('toast.noChase')); return; }
       if (sq !== G.sel && isLetter(x) && colorOf(x) === col && moves.some(function (mm) { return mm.from === sq; })) { G.sel = sq; render(); return; }
       G.sel = null; render(); // 點別的地方：取消選取（蓋著的子也不會翻，要再點一次）
       return;
@@ -876,14 +879,14 @@
   function startGame(o) {
     G.gen++;
     // 這盤的設定（「再來一盤」照這個開；只有測試小門會帶的 layout、seed 不留）
-    G.setup = { mode: o.mode, opponent: o.opponent, drawPlies: o.drawPlies, first: o.first, level: o.level };
+    G.setup = { mode: o.mode, opponent: o.opponent, drawPlies: o.drawPlies, first: o.first, level: o.level, noChase: !!o.noChase };
     var first = o.first === 'random' ? (E.randInt(E.defaultRng(), 2) === 0 ? 'me' : 'opp') : o.first;
     G.me = first === 'opp' ? 1 : 0;
     G.bot = o.opponent === 'bot' ? 1 - G.me : null;
     G.level = Number(o.level) || G.set.level;
     AI.cancel(); // 新局：上一盤還在算的丟掉
     G.thinking = null;
-    var opts = { mode: o.mode, drawPlies: o.drawPlies };
+    var opts = { mode: o.mode, drawPlies: o.drawPlies, noChase: !!o.noChase }; // 禁止長捉：舊的存檔、測試小門沒帶＝關
     if (o.layout) opts.layout = o.layout; // 只有測試小門會傳
     else if (o.seed != null) opts.rng = E.makeRng(o.seed);
     G.state = E.newGame(opts);
@@ -1296,7 +1299,7 @@
     AI.cancel(); G.thinking = null;
     ['mode', 'opponent', 'first'].forEach(function (k) { if (o.setup[k] != null) check(k, o.setup[k]); });
     if (o.setup.level != null) setLevelUI(Number(o.setup.level)); // 等級滑桿也停到這一盤的等級（不寫進設定）
-    readSetup(); // 開始頁的等級卡、兩人同機的說明跟著剛勾的那一項（回首頁才看得到）；readSetup 不存設定、不改 G.set
+    readSetup(); // 開始頁的等級卡、「我」按鈕的字跟著剛勾的那一項（回首頁才看得到）；readSetup 不存設定、不改 G.set
     G.setup = o.setup; // 這一盤的設定照存檔（readSetup 讀到的平手步數是開始頁現在的，不是這一盤的）
     G.me = o.me; G.bot = o.bot; G.level = o.bot !== null ? o.level : G.set.level;
     G.state = r.state;
@@ -1391,7 +1394,7 @@
   function syncSettingsForm() {
     var s = G.set;
     check('theme', s.theme); check('scheme', s.scheme); check('font', s.font); check('colDefault', s.colDefault);
-    check('setDrawPlies', s.drawPlies); check('anim', s.anim); check('lang', I18N.getLang());
+    check('setDrawPlies', s.drawPlies); check('noChase', s.noChase); check('anim', s.anim); check('lang', I18N.getLang());
   }
 
   // 改一項設定：記下來、馬上套用
@@ -1403,6 +1406,7 @@
     if (k === 'theme' || k === 'scheme' || k === 'font' || k === 'anim') applyLook();
     else if (k === 'colDefault') { G.colMode = v; renderIntel(); }
     else if (k === 'drawPlies') { check('drawPlies', v); check('setDrawPlies', v); readSetup(); } // 開始頁那一組和這裡是同一個設定；這一盤不變，下一盤才用
+    else if (k === 'noChase') readSetup(); // 禁止長捉：這一盤不變，下一盤才用（開始頁的規則說明跟著）
   }
   function onSettingInput(e) {
     var el = e.target, v = el.value;
@@ -1413,10 +1417,12 @@
 
   function readSetup() {
     function val(name) { var el = document.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : null; }
-    G.setup = { mode: val('mode'), opponent: val('opponent'), drawPlies: Number(val('drawPlies')), first: val('first'), level: levelIdAt(Number($('lvlRange').value)) || G.set.level };
-    $('firstNote').hidden = G.setup.opponent !== 'pvp';
+    G.setup = { mode: val('mode'), opponent: val('opponent'), drawPlies: Number(val('drawPlies')), first: val('first'), level: levelIdAt(Number($('lvlRange').value)) || G.set.level,
+      noChase: G.set.noChase === 'on' };
+    $('firstMe').textContent = t(G.setup.opponent === 'pvp' ? 'first.mePvp' : 'first.me'); // 兩人同機：「我（下方）」
     $('levelCard').hidden = G.setup.opponent !== 'bot'; // 等級只在選電腦時出現
     $('rulesDraw').textContent = t('rules.draw', { n: G.setup.drawPlies });
+    $('rulesNoChase').hidden = !G.setup.noChase; // 禁止長捉：開著時規則裡才有這一條
   }
 
   // ------------------------------------------------------------ 開始頁的等級滑桿（作者 2026-10-25）
