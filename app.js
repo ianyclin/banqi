@@ -9,6 +9,7 @@
   'use strict';
   var E = window.BanqiEngine, I18N = window.I18N, t = I18N.t, AIX = window.BanqiAI, GS = window.BanqiStats, RT = window.BanqiRating;
   var SND = window.BanqiSound || { play: function () { return false; }, setEnabled: function () {} }; // 音效（sound.js）；沒載到就不出聲
+  var MUS = window.BanqiMusic || { setEnabled: function () {}, duck: function () { return false; } }; // 背景音樂（music.js）；沒載到、曲目是空的就不出聲
   function vurl(p) { return typeof window.vurl === 'function' ? window.vurl(p) : p; } // 帶版本號的網址（index.html 的 vurl；單一檔案版沒有就照舊）
   var TEST = window.BANQI_RELEASE !== true && /[?&]test=1(?:&|$)/.test(location.search);
   var HIDDEN = E.HIDDEN;
@@ -73,10 +74,12 @@
   var SETTINGS_KEY = 'banqi.settings.v1';
   // level＝上次選的電腦等級（開始頁；預設 3 初級）
   // noChase＝禁止長捉（規格 8.5；'on'／'off'，預設關）：跟 drawPlies 一樣是開局設定，下一盤才用
-  // danger＝危險提醒（'on'／'off'，預設開；見 dangerSquares）
-  var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, noChase: 'off', anim: 'mid', level: 3, sound: 'on', danger: 'on' };
+  // danger＝危險提醒（'on'／'off'，預設關（作者 2026-10-26）；見 dangerSquares）。設定只存使用者自己點過的那幾項（saveSettings 只寫 patch），
+  // 所以從來沒點過的人換預設以後也跟著變成關；點過「開」的人照舊是開
+  // music＝背景音樂（'on'／'off'，預設開；music.js，曲目是空的時候開著也不出聲）
+  var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, noChase: 'off', anim: 'mid', level: 3, sound: 'on', danger: 'off', music: 'on' };
   // level 的選項照 ai.js 的 LEVELS（開始頁的等級滑桿也是；加一級時這裡不用改）
-  var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], noChase: ['off', 'on'], anim: ['slow', 'mid', 'fast', 'none'], sound: ['on', 'off'], danger: ['on', 'off'],
+  var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], noChase: ['off', 'on'], anim: ['slow', 'mid', 'fast', 'none'], sound: ['on', 'off'], danger: ['on', 'off'], music: ['on', 'off'],
     level: AIX.LEVELS.map(function (l) { return l.id; }) };
   // 動畫速度：CSS 的 --anim（所有 transition／animation 的秒數乘它）
   var ANIM = { slow: 1.6, mid: 1, fast: 0.5, none: 0 };
@@ -994,6 +997,7 @@
     render();
     layoutBoard();
     if (isSJ()) SND.play('sjCard'); // 神將：開場一聲鐘（字卡出來那一下；減少動態效果、動畫「無」不出字卡也照響）
+    if (isSJ()) MUS.duck(-10, 2); // 鐘響的時候背景音樂壓低約 10 dB、2 秒（music.js）
     if (cardWanted()) showCard();
     else sweepCap();
     next();
@@ -1209,8 +1213,36 @@
   function renderProfileBtn() {
     var p = me(), mode = curMode(), r = ratingOf(p, mode);
     $('profileName').textContent = p ? p.name : '';
-    $('profileRating').textContent = t('profile.rating', { badge: badgeName(r.badge), rating: r.r });
-    $('profileBtn').setAttribute('aria-label', t('profile.btnLabel', { name: p ? p.name : '', mode: t('mode.' + mode), badge: badgeName(r.badge), rating: r.r }));
+    // 「銅 1000」：徽章（含後面的空格）與分數各一個 span，標題那一列放不下時只收徽章（fitStartBar）；整段的 textContent 照舊是 profile.rating
+    var full = t('profile.rating', { badge: badgeName(r.badge), rating: r.r }), num = String(r.r), at = full.lastIndexOf(num), el = $('profileRating');
+    if (at < 0) at = full.length;
+    el.textContent = '';
+    var bs = document.createElement('span'), ns = document.createElement('span');
+    bs.className = 'chip-badge'; bs.textContent = full.slice(0, at);
+    ns.className = 'chip-num'; ns.textContent = full.slice(at);
+    el.appendChild(bs); el.appendChild(ns);
+    var lbl = t('profile.btnLabel', { name: p ? p.name : '', mode: t('mode.' + mode), badge: badgeName(r.badge), rating: r.r });
+    $('profileBtn').setAttribute('aria-label', lbl);
+    $('profileBtn').setAttribute('title', lbl); // 名字、徽章收起來的時候滑鼠移上去看得到
+    fitStartBar();
+  }
+  // 開始頁標題那一列（作者 2026-10-26）：一列。左邊標題＋三個子，右邊帳號鈕、紀錄鈕、齒輪。照下面的順序試，第一個放得下的就用
+  // （量真的寬度：iPhone 的字型跟測試用的不一樣、名字長短、徽章、語言、主題的標題字距都會變）：
+  //   帳號鈕寫名字＋徽章＋積分、紀錄寫字 → 拿掉名字 → 紀錄換成圖示 → 拿掉徽章（只留積分）→ 收起三個子、徽章回來 → 收起三個子、只留積分。
+  // 收起來的名字、徽章照樣在帳號鈕的 aria-label 與 title 裡；紀錄是圖示時字在 aria-label 與 title。每一顆點的範圍照樣 44×44 以上
+  var BAR_FITS = [[1, 1, 0, 1], [0, 1, 0, 1], [0, 1, 1, 1], [0, 0, 1, 1], [0, 1, 1, 0], [0, 0, 1, 0]]; // [名字, 徽章, 紀錄是圖示, 三個子]
+  function fitStartBar() {
+    var bar = $('startBar'), btns = bar && bar.querySelector('.topbar-btns'), rb = $('recordsBtn'), i, f;
+    if (!btns || $('start').hidden) return; // 開始頁沒開著量不到；回到開始頁時 showPage → renderProfileBtn 會再量
+    for (i = 0; i < BAR_FITS.length; i++) {
+      f = BAR_FITS[i];
+      bar.classList.toggle('no-name', !f[0]);
+      bar.classList.toggle('no-badge', !f[1]);
+      bar.classList.toggle('no-logo', !f[3]);
+      rb.className = f[2] ? 'icon-btn' : 'link';
+      if (btns.getBoundingClientRect().right <= bar.getBoundingClientRect().right + 0.5) break;
+    }
+    bar.setAttribute('data-fit', String(Math.min(i, BAR_FITS.length - 1)));
   }
   var profEditing = null; // null＝沒在編；''＝新增；帳號 id＝改名
   function renderProfiles() {
@@ -1696,7 +1728,7 @@
     var s = G.set;
     check('theme', s.theme); check('scheme', s.scheme); check('font', s.font); check('colDefault', s.colDefault);
     check('setDrawPlies', s.drawPlies); check('noChase', s.noChase); check('danger', s.danger); check('anim', s.anim); check('lang', I18N.getLang());
-    check('sound', s.sound);
+    check('sound', s.sound); check('music', s.music);
   }
 
   // 改一項設定：記下來、馬上套用
@@ -1710,6 +1742,7 @@
     else if (k === 'drawPlies') { check('drawPlies', v); check('setDrawPlies', v); readSetup(); } // 開始頁那一組和這裡是同一個設定；這一盤不變，下一盤才用
     else if (k === 'noChase') readSetup(); // 禁止長捉：這一盤不變，下一盤才用（開始頁的規則說明跟著）
     else if (k === 'sound') SND.setEnabled(v === 'on');
+    else if (k === 'music') MUS.setEnabled(v === 'on');
   }
   function onSettingInput(e) {
     var el = e.target, v = el.value;
@@ -2312,6 +2345,7 @@
   function init() {
     G.set = readSettings();
     SND.setEnabled(G.set.sound === 'on');
+    MUS.setEnabled(G.set.music === 'on');
     GS.initProfiles(t('profile.defaultName')); // 第一次開：建預設帳號（名字用現在的語言）
     GS.profileList().forEach(function (p) { GS.achSync(p.id); }); // 成就：照現有的紀錄回推（開新版第一次開頁、別的視窗下完的盤），不出結算卡那一行
     G.colMode = G.set.colDefault;
@@ -2337,7 +2371,6 @@
       });
     });
     document.querySelectorAll('#settings input[type="radio"]').forEach(function (el) { el.addEventListener('change', onSettingInput); });
-    $('langBtn').addEventListener('click', function () { I18N.setLang(I18N.getLang() === 'en' ? 'zh-TW' : 'en'); applyLang(); });
     $('setBtnStart').addEventListener('click', openSettings);
     $('setBtnGame').addEventListener('click', openSettings);
     $('setBack').addEventListener('click', closeSettings);
@@ -2377,6 +2410,8 @@
     $('homeBtn').addEventListener('click', function () { showPage('start'); });
     window.addEventListener('resize', scheduleLayout);
     window.addEventListener('orientationchange', scheduleLayout);
+    window.addEventListener('resize', fitStartBar); // 開始頁標題那一列：寬度變了重新挑放得下的樣子
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitStartBar); // 字型載好以後字寬會變
     // 帳號、紀錄（第二步 b-2）
     $('profileBtn').addEventListener('click', openProfiles);
     $('recordsBtn').addEventListener('click', openRecords);
@@ -2419,6 +2454,8 @@
       render: render,
       DEFAULTS: DEFAULTS,
       SND: SND,
+      MUS: MUS,
+      fitStartBar: fitStartBar, BAR_FITS: BAR_FITS,
       dangerSquares: dangerSquares,
       // 匯出／匯入：最後一次匯出的 { name, text }、匯入一段文字（跟選檔案一樣跑完、出那一句）
       lastExport: function () { return lastExport; }, exportBackup: exportBackup, importText: function (text) { return importDone(GS.importText(text)); }, importMsg: importMsg,

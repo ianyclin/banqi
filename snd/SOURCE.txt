@@ -1,0 +1,18 @@
+暗棋的背景音樂（music.js 的 TRACKS）：五首都是現金流（cashflow/snd/）已經授權的曲子，檔案原封不動複製過來（AAC 雙聲道 96 kbps、44.1 kHz，沒有重新轉檔），檔名照現金流的編號。
+作者 2026-10-10 從 Pixabay 圈選給現金流用（原檔 MP3 256 kbps 在現金流的 gitignore 的 art-src/audio/music/；轉檔方式見 cashflow/snd/SOURCE.txt）；2026-10-26 核准暗棋沿用這五首。
+授權：Pixabay Content License（https://pixabay.com/service/license-summary/）—— 免費、不必署名、可改編；不可原樣單獨轉售。
+注意：Travel Acoustic Guitar 頁面標「Content ID Registered」（YouTube 內容識別已登記），放進 app 無妨，若拿去做影片可能被認領。
+音量：沒有改檔；每一首在 music.js 的 TRACKS 用 Web Audio 的 GainNode 加減（db），五首的整合響度拉到一樣（含總音量 −18 dB 以後都是 −32 LUFS）。
+  2026-10-26 用 ffmpeg 量（loudnorm 的整合響度 I、真峰值 TP；volumedetect 的平均 mean）：
+  music-1  I −11.2 LUFS  TP +0.9 dBTP  mean −13.3 dB  → db −2.8
+  music-2  I −13.5 LUFS  TP −0.3 dBTP  mean −14.1 dB  → db −0.5
+  music-4  I −17.3 LUFS  TP −4.9 dBTP  mean −19.5 dB  → db +3.3
+  music-6  I −13.9 LUFS  TP +2.2 dBTP  mean −16.0 dB  → db −0.1
+  music-8  I −9.2 LUFS   TP +1.4 dBTP  mean −10.6 dB  → db −4.8
+  放出來的真峰值約 −21 到 −16 dBFS（平均約 −19），音效最響的「喀」峰值約 −13 dBFS：音樂比音效的峰值低約 6 dB。
+
+music-1.m4a　〈旅途〉　Travel Acoustic Guitar／Tunetank　　https://pixabay.com/music/acoustic-group-travel-acoustic-guitar-349453/　原檔 tunetank-travel-acoustic-guitar-349453.mp3　（＝ cashflow/snd/music-1.m4a）
+music-2.m4a　〈山路〉　Beautiful Folk Guitar／331music　　https://pixabay.com/music/folk-beautiful-folk-guitar-591963/　原檔 331music-beautiful-folk-guitar-591963.mp3　（＝ cashflow/snd/music-2.m4a）
+music-4.m4a　〈暖陽〉　Warm Acoustic Guitar／Universfield　https://pixabay.com/music/acoustic-group-warm-acoustic-guitar-232912/　原檔 universfield-warm-acoustic-guitar-232912.mp3　（＝ cashflow/snd/music-4.m4a）
+music-6.m4a　〈棋局〉　Italian Game／Turning_Pages　　　　https://pixabay.com/music/lofi-italian-game-466356/　原檔 turning_pages-italian-game-466356.mp3　（＝ cashflow/snd/music-6.m4a）
+music-8.m4a　〈微風〉　Bossa Nova Cafe Morning Breeze／alex-morgan　https://pixabay.com/music/bossa-nova-bossa-nova-cafe-morning-breeze-573876/　原檔 alex-morgan-bossa-nova-cafe-morning-breeze-573876.mp3　（＝ cashflow/snd/music-8.m4a）

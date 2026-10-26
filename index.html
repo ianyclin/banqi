@@ -22,7 +22,7 @@
 <!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
 <link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
 <!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
-<script>var BANQI_VERSION = 'v0.1.9'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+<script>var BANQI_VERSION = 'v0.2.0'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
 function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
 document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
 </head>
@@ -46,20 +46,20 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
 <main>
   <!-- 開始頁 -->
   <section id="start" class="page">
-    <div class="topbar">
+    <!-- 標題那一列（作者 2026-10-26：一列）：左邊標題＋三個子，右邊帳號、紀錄、設定。語言鈕拿掉了（語言在設定頁）。
+         放不下時 app.js 的 fitStartBar 一步一步收（名字 → 紀錄換成圖示 → 徽章 → 三個子），收起來的字照樣在 aria-label 與 title -->
+    <div class="topbar" id="startBar">
       <h1 data-i18n="app.title"></h1>
       <!-- 設計稿的開始頁：標題旁一個暗子、一個帥、一個將（也讓預設的棋子字型一開頁就用到） -->
       <span class="trio" aria-hidden="true"><span class="mini back-mini"></span><span class="mini r">帥</span><span class="mini b">將</span></span>
       <span class="topbar-btns">
-        <button type="button" id="langBtn" class="link" data-i18n="lang.switch" data-i18n-attr="aria-label:lang.switchLabel"></button>
+        <!-- 帳號（第二步 b-2）：人的圖示、名字、這個帳號在現在選的玩法的徽章與積分（rating.js；換玩法跟著換） -->
+        <button type="button" id="profileBtn" class="chip"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.8 19.5c1.2-3.6 4-5.4 7.2-5.4s6 1.8 7.2 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span id="profileName"></span><span id="profileRating" class="chip-rt"></span></button>
+        <!-- 紀錄：放得下寫字（button.link），放不下換成獎盃圖示（button.icon-btn；class 由 fitStartBar 換） -->
+        <button type="button" id="recordsBtn" class="link" data-i18n-attr="aria-label:start.records;title:start.records"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M7.2 4.2h9.6v4.4a4.8 4.8 0 0 1-9.6 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7.2 6H4.4v1.2a3.4 3.4 0 0 0 3.2 3.4M16.8 6h2.8v1.2a3.4 3.4 0 0 1-3.2 3.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 13.4v3.4M8.4 19.8h7.2M9.8 16.8h4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="lbl" data-i18n="start.records"></span></button>
         <!-- 設定（作者 2026-10-24）：開始頁右上角、對局頁上面那條都有一顆 -->
         <button type="button" id="setBtnStart" class="icon-btn gear" data-i18n-attr="aria-label:settings.open;title:settings.open"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.4 7.4 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
       </span>
-    </div>
-    <!-- 帳號與紀錄（第二步 b-2）：現在用哪個帳號、看紀錄。帳號鈕後面是這個帳號在現在選的玩法的徽章與積分（rating.js；換玩法跟著換） -->
-    <div class="start-acts">
-      <button type="button" id="profileBtn" class="chip"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.8 19.5c1.2-3.6 4-5.4 7.2-5.4s6 1.8 7.2 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span id="profileName"></span><span id="profileRating" class="chip-rt"></span></button>
-      <button type="button" id="recordsBtn" class="link" data-i18n="start.records"></button>
     </div>
     <div class="card">
       <h2 id="hMode" data-i18n="start.mode"></h2>
@@ -251,86 +251,107 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
       <h1 class="set-title" data-i18n="settings.title"></h1>
       <span class="topbar-spacer" aria-hidden="true"></span>
     </div>
-    <div class="card">
-      <h2 id="hTheme" data-i18n="settings.theme"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hTheme">
-        <label><input type="radio" name="theme" value="wood"><span><b data-i18n="theme.wood"></b></span></label>
-        <label><input type="radio" name="theme" value="lacquer"><span><b data-i18n="theme.lacquer"></b></span></label>
+    <!-- 由上往下（作者 2026-10-26）：聲音 → 外觀 → 對局 → 語言 → 授權與版本。每一組一個 section，上面一行小小的組名（.set-group，h2）；卡片的標題是 h3 -->
+    <section class="set-sec" aria-labelledby="gSound">
+      <h2 class="set-group" id="gSound" data-i18n="settings.gSound"></h2>
+      <!-- 音效（sound.js，當場合成、沒有音檔）：預設開；動畫「無」、減少動態效果都不關 -->
+      <div class="card">
+        <h3 id="hSound" data-i18n="settings.sound"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hSound">
+          <label><input type="radio" name="sound" value="on"><span data-i18n="sound.on"></span></label>
+          <label><input type="radio" name="sound" value="off"><span data-i18n="sound.off"></span></label>
+        </div>
       </div>
-    </div>
-    <div class="card">
-      <h2 id="hScheme" data-i18n="settings.scheme"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hScheme">
-        <label><input type="radio" name="scheme" value="auto"><span data-i18n="scheme.auto"></span></label>
-        <label><input type="radio" name="scheme" value="light"><span data-i18n="scheme.light"></span></label>
-        <label><input type="radio" name="scheme" value="dark"><span data-i18n="scheme.dark"></span></label>
+      <!-- 背景音樂（music.js；作者 2026-10-26）：預設開；曲目（window.BANQI_MUSIC）是空的時候開著也不出聲 -->
+      <div class="card">
+        <h3 id="hMusic" data-i18n="settings.music"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hMusic">
+          <label><input type="radio" name="music" value="on"><span data-i18n="music.on"></span></label>
+          <label><input type="radio" name="music" value="off"><span data-i18n="music.off"></span></label>
+        </div>
       </div>
-    </div>
-    <div class="card">
-      <h2 id="hFont" data-i18n="settings.font"></h2>
-      <!-- 選項由 app.js 的 FONTS 表產生（之後 banqi/fonts/ 的字型加進那張表就會出現在這裡） -->
-      <div class="seg wrap" role="radiogroup" aria-labelledby="hFont" id="fontSeg"></div>
-    </div>
-    <div class="card">
-      <h2 id="hCol" data-i18n="settings.colDefault"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hCol">
-        <label><input type="radio" name="colDefault" value="cap"><span data-i18n="col.cap"></span></label>
-        <label><input type="radio" name="colDefault" value="hid"><span data-i18n="col.hid"></span></label>
+    </section>
+    <section class="set-sec" aria-labelledby="gLook">
+      <h2 class="set-group" id="gLook" data-i18n="settings.gLook"></h2>
+      <div class="card">
+        <h3 id="hTheme" data-i18n="settings.theme"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hTheme">
+          <label><input type="radio" name="theme" value="wood"><span><b data-i18n="theme.wood"></b></span></label>
+          <label><input type="radio" name="theme" value="lacquer"><span><b data-i18n="theme.lacquer"></b></span></label>
+        </div>
       </div>
-      <p class="note" data-i18n="settings.colDefaultSub"></p>
-    </div>
-    <div class="card">
-      <h2 id="hSetDraw" data-i18n="settings.drawPlies"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hSetDraw">
-        <label><input type="radio" name="setDrawPlies" value="30"><span>30</span></label>
-        <label><input type="radio" name="setDrawPlies" value="40"><span>40</span></label>
-        <label><input type="radio" name="setDrawPlies" value="50"><span>50</span></label>
-        <label><input type="radio" name="setDrawPlies" value="60"><span>60</span></label>
+      <div class="card">
+        <h3 id="hScheme" data-i18n="settings.scheme"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hScheme">
+          <label><input type="radio" name="scheme" value="auto"><span data-i18n="scheme.auto"></span></label>
+          <label><input type="radio" name="scheme" value="light"><span data-i18n="scheme.light"></span></label>
+          <label><input type="radio" name="scheme" value="dark"><span data-i18n="scheme.dark"></span></label>
+        </div>
       </div>
-      <p class="note" data-i18n="settings.drawPliesSub"></p>
-    </div>
-    <!-- 禁止長捉（規格 8.5）：跟平手步數一樣是開局設定，下一盤才用；預設關 -->
-    <div class="card">
-      <h2 id="hSetNoChase" data-i18n="settings.noChase"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hSetNoChase">
-        <label><input type="radio" name="noChase" value="off"><span data-i18n="noChase.off"></span></label>
-        <label><input type="radio" name="noChase" value="on"><span data-i18n="noChase.on"></span></label>
+      <div class="card">
+        <h3 id="hFont" data-i18n="settings.font"></h3>
+        <!-- 選項由 app.js 的 FONTS 表產生（之後 banqi/fonts/ 的字型加進那張表就會出現在這裡） -->
+        <div class="seg wrap" role="radiogroup" aria-labelledby="hFont" id="fontSeg"></div>
       </div>
-      <p class="note" data-i18n="settings.noChaseSub"></p>
-    </div>
-    <!-- 危險提醒（作者 2026-10-25）：輪到你時標出下一步可能被吃的子；預設開，跟高手、神將下時不提醒（app.js dangerSquares） -->
-    <div class="card">
-      <h2 id="hSetDanger" data-i18n="settings.danger"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hSetDanger">
-        <label><input type="radio" name="danger" value="on"><span data-i18n="danger.on"></span></label>
-        <label><input type="radio" name="danger" value="off"><span data-i18n="danger.off"></span></label>
+      <div class="card">
+        <h3 id="hAnim" data-i18n="settings.anim"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hAnim">
+          <label><input type="radio" name="anim" value="slow"><span data-i18n="anim.slow"></span></label>
+          <label><input type="radio" name="anim" value="mid"><span data-i18n="anim.mid"></span></label>
+          <label><input type="radio" name="anim" value="fast"><span data-i18n="anim.fast"></span></label>
+          <label><input type="radio" name="anim" value="none"><span data-i18n="anim.none"></span></label>
+        </div>
       </div>
-      <p class="note" data-i18n="settings.dangerSub"></p>
-    </div>
-    <div class="card">
-      <h2 id="hAnim" data-i18n="settings.anim"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hAnim">
-        <label><input type="radio" name="anim" value="slow"><span data-i18n="anim.slow"></span></label>
-        <label><input type="radio" name="anim" value="mid"><span data-i18n="anim.mid"></span></label>
-        <label><input type="radio" name="anim" value="fast"><span data-i18n="anim.fast"></span></label>
-        <label><input type="radio" name="anim" value="none"><span data-i18n="anim.none"></span></label>
+    </section>
+    <section class="set-sec" aria-labelledby="gGame">
+      <h2 class="set-group" id="gGame" data-i18n="settings.gGame"></h2>
+      <div class="card">
+        <h3 id="hSetDraw" data-i18n="settings.drawPlies"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hSetDraw">
+          <label><input type="radio" name="setDrawPlies" value="30"><span>30</span></label>
+          <label><input type="radio" name="setDrawPlies" value="40"><span>40</span></label>
+          <label><input type="radio" name="setDrawPlies" value="50"><span>50</span></label>
+          <label><input type="radio" name="setDrawPlies" value="60"><span>60</span></label>
+        </div>
+        <p class="note" data-i18n="settings.drawPliesSub"></p>
       </div>
-    </div>
-    <!-- 音效（sound.js，當場合成、沒有音檔）：預設開；動畫「無」、減少動態效果都不關 -->
-    <div class="card">
-      <h2 id="hSound" data-i18n="settings.sound"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hSound">
-        <label><input type="radio" name="sound" value="on"><span data-i18n="sound.on"></span></label>
-        <label><input type="radio" name="sound" value="off"><span data-i18n="sound.off"></span></label>
+      <!-- 禁止長捉（規格 8.5）：跟平手步數一樣是開局設定，下一盤才用；預設關 -->
+      <div class="card">
+        <h3 id="hSetNoChase" data-i18n="settings.noChase"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hSetNoChase">
+          <label><input type="radio" name="noChase" value="off"><span data-i18n="noChase.off"></span></label>
+          <label><input type="radio" name="noChase" value="on"><span data-i18n="noChase.on"></span></label>
+        </div>
+        <p class="note" data-i18n="settings.noChaseSub"></p>
       </div>
-    </div>
-    <div class="card">
-      <h2 id="hLang" data-i18n="settings.lang"></h2>
-      <div class="seg" role="radiogroup" aria-labelledby="hLang">
-        <label><input type="radio" name="lang" value="zh-TW"><span lang="zh-Hant">繁體中文</span></label>
-        <label><input type="radio" name="lang" value="en"><span lang="en">English</span></label>
+      <!-- 危險提醒（作者 2026-10-25）：輪到你時標出下一步可能被吃的子；預設關（作者 2026-10-26），跟高手、神將下時不提醒（app.js dangerSquares） -->
+      <div class="card">
+        <h3 id="hSetDanger" data-i18n="settings.danger"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hSetDanger">
+          <label><input type="radio" name="danger" value="on"><span data-i18n="danger.on"></span></label>
+          <label><input type="radio" name="danger" value="off"><span data-i18n="danger.off"></span></label>
+        </div>
+        <p class="note" data-i18n="settings.dangerSub"></p>
       </div>
-    </div>
+      <div class="card">
+        <h3 id="hCol" data-i18n="settings.colDefault"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hCol">
+          <label><input type="radio" name="colDefault" value="cap"><span data-i18n="col.cap"></span></label>
+          <label><input type="radio" name="colDefault" value="hid"><span data-i18n="col.hid"></span></label>
+        </div>
+        <p class="note" data-i18n="settings.colDefaultSub"></p>
+      </div>
+    </section>
+    <!-- 語言（作者 2026-10-26：開始頁的語言鈕拿掉，只在這裡換）：卡片沒有自己的標題（跟組名重複），選項由組名「語言」念 -->
+    <section class="set-sec" aria-labelledby="gLang">
+      <h2 class="set-group" id="gLang" data-i18n="settings.lang"></h2>
+      <div class="card">
+        <div class="seg" role="radiogroup" aria-labelledby="gLang">
+          <label><input type="radio" name="lang" value="zh-TW"><span lang="zh-Hant">繁體中文</span></label>
+          <label><input type="radio" name="lang" value="en"><span lang="en">English</span></label>
+        </div>
+      </div>
+    </section>
     <!-- 授權（SIL OFL 1.1 第 2 條：散布時附著作權聲明與授權全文）。字型名稱、著作權那一行照原文，不翻 -->
     <details class="card lic" id="licCard">
       <summary data-i18n="lic.title"></summary>
@@ -355,6 +376,9 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
           <a href="fonts/LICENSES/yuji.txt" data-i18n="lic.full"></a></li>
         <!-- 神將開場字卡背後的武將剪影（index.html 開頭的 #sjSil；來源見 docs/assets.md） -->
         <li data-i18n="lic.silNote"></li>
+        <!-- 背景音樂（music.js 的 TRACKS；作者 2026-10-26 核准沿用現金流的五首）：來源與每一首的網址在 snd/SOURCE.txt -->
+        <li><b data-i18n="lic.musicHead"></b> <span data-i18n="lic.musicLic"></span>・<span class="url">https://pixabay.com/service/license-summary/</span><br>
+          <span data-i18n="lic.musicList"></span></li>
       </ul>
       <p class="note" data-i18n="lic.folder"></p>
     </details>
@@ -398,12 +422,9 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
 <!-- 讀屏用：跟神將下的每一盤開始時念一次「對手：神將」（app.js 的 saySJ） -->
 <div id="sjSay" class="sr-only" aria-live="polite"></div>
 
-<!-- 狀態列那一塊蓋頁面底色（做法同五子棋 v0.5.8：有安全區時加厚 24px、最下面 12px 淡出） -->
-<div class="safe-top-cover" aria-hidden="true"></div>
-<div id="safeProbe" aria-hidden="true"></div>
-<script>(function () { function f() { var p = document.getElementById('safeProbe'); document.documentElement.classList.toggle('has-safe-top', !!p && p.getBoundingClientRect().height > 0.5); } f(); addEventListener('resize', f); addEventListener('orientationchange', f); })();</script>
+<!-- 狀態列那一塊（作者 2026-10-26）：style.css 的 body::before，一條安全區高、頁面底色、不透明的帶子（原來這裡的淡出遮罩拿掉了） -->
 <!-- 程式（照這個順序；都帶版本號）。ai.js：電腦對手平常在 Worker（ai-worker.js）裡算，這裡也載一份，Worker 開不了時在主執行緒算 -->
-<script>['engine.js', 'ai.js', 'rating.js', 'stats.js', 'i18n.js', 'replay.js', 'sound.js', 'app.js'].forEach(function (f) { document.write('<script src="' + vurl(f) + '"><\/script>'); });</script>
+<script>['engine.js', 'ai.js', 'rating.js', 'stats.js', 'i18n.js', 'replay.js', 'sound.js', 'music.js', 'app.js'].forEach(function (f) { document.write('<script src="' + vurl(f) + '"><\/script>'); });</script>
 <!-- 離線（sw.js）：只在發布版註冊（tools/README-release.md 第 7 節第二組） -->
 <script>if (BANQI_RELEASE === true && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
 </body>

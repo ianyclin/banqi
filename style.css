@@ -231,7 +231,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-body); 
 [hidden] { display: none !important; }
 main {
   max-width: 680px; margin: 0 auto;
-  /* 上緣＝安全區＋28px（頂端遮罩是安全區＋24px）；沒有安全區時 12px。寫法同五子棋 */
+  /* 上緣＝安全區＋28px（頂端的不透明帶子＝安全區高，見 body::before）；沒有安全區時 12px。寫法同五子棋 */
   padding: max(12px, calc(env(safe-area-inset-top) + min(28px, env(safe-area-inset-top) * 1000))) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 body[data-page="game"] main { max-width: 1100px; }
@@ -240,7 +240,10 @@ body[data-page="game"] main { max-width: 1100px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 16px; }
 h1 { font-family: var(--font-title); font-size: 2rem; font-weight: var(--title-wt); margin: 0; letter-spacing: var(--title-ls); }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 12px 14px; margin-bottom: 12px; }
-.card h2 { font-size: var(--fs-body); margin: 0 0 8px; }
+.card h2, .card h3 { font-size: var(--fs-body); margin: 0 0 8px; }
+/* 設定頁的組名（作者 2026-10-26）：小、淡、字距拉開；跟上一組的卡片隔開一點 */
+.set-group { font-size: var(--fs-small); font-weight: 600; color: var(--ink-2); letter-spacing: .12em; margin: 20px 4px 6px; }
+.set-sec:first-of-type .set-group { margin-top: 0; }
 .note { font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; margin: 8px 0 0; }
 .seg { display: flex; gap: 8px; }
 .seg label { flex: 1; min-width: 0; position: relative; display: flex; }
@@ -538,7 +541,7 @@ button.icon-btn .slash { display: none; }
 button.icon-btn[aria-pressed="true"] .slash { display: inline; }
 
 /* ---------- 開始頁標題旁的三個子 ---------- */
-.trio { display: flex; align-items: center; margin-right: auto; margin-left: 4px; }
+.trio { display: flex; align-items: center; margin-left: 4px; }
 .trio .mini { --d: 28px; }
 .trio > * + * { margin-left: -6px; }
 .trio .back-mini { background: radial-gradient(circle at 35% 28%, var(--back-0) 0, var(--back-1) 32%, var(--back-2) 78%, var(--back-3) 100%);
@@ -552,6 +555,13 @@ button.icon-btn[aria-pressed="true"] .slash { display: inline; }
 #start .topbar h1 { margin-right: calc(-1 * var(--title-ls)); }
 @media (max-width: 359px) { :root[data-theme="lacquer"] #start .topbar h1 { --title-ls: .2em; } }
 .topbar-btns { display: flex; align-items: center; gap: 4px; } /* 齒輪左右各有 4px 透明的點的範圍：看得到的間距＝8（320 寬英文的標題那一列才放得下） */
+/* 開始頁標題那一列（作者 2026-10-26：一列）：每一樣都不縮（放不下時 app.js 的 fitStartBar 才量得出來、一步一步收），按鈕那一組靠右 */
+#start .topbar > * { flex: none; }
+#start .topbar-btns { margin-left: auto; }
+#start .topbar.no-logo .trio, #start .topbar.no-name #profileName, #start .topbar.no-badge .chip-badge { display: none; }
+#recordsBtn .ic { display: none; }
+#recordsBtn.icon-btn .ic { display: block; }
+#recordsBtn.icon-btn .lbl { display: none; }
 .set-title { flex: 1; text-align: center; font-size: 1.5rem; }
 .topbar-spacer { width: 72px; flex: none; }
 button.link.back { min-width: 72px; min-height: 44px; }
@@ -589,15 +599,13 @@ button.link.back { min-width: 72px; min-height: 44px; }
 @keyframes think-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .side.thinking .turn { animation: none; } }
 .seg .sample { display: block; font-size: 1.375rem; line-height: 1.2; margin-top: 2px; }
-/* ---------- 開始頁的帳號與紀錄（第二步 b-2） ---------- */
-.start-acts { display: flex; align-items: center; gap: 8px; margin: -6px 0 12px; }
+/* ---------- 開始頁的帳號鈕（第二步 b-2；2026-10-26 起在標題那一列） ---------- */
 button.chip { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px 0 10px; max-width: 60%; } /* 樣子＝文字次要鈕；名字用 --ink（徽章與分數 --ink-2） */
 button.chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 積分那一批：帳號鈕後面接徽章與積分（「銀 1087」）。名字太長時先切名字，徽章與分數不切；鈕最寬到紀錄鈕前面 */
+/* 積分那一批：帳號鈕後面接徽章與積分（「銀 1087」）。標題那一列放不下時由 fitStartBar 整個收起名字、再收徽章（不切字） */
 button.chip { max-width: none; min-width: 0; flex: 0 1 auto; }
 button.chip #profileName { min-width: 0; color: var(--ink); }
 button.chip .chip-rt { flex: none; overflow: visible; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.start-acts button.link { margin-left: auto; flex: none; }
 
 /* ---------- 紀錄頁 ---------- */
 .rec-who { margin: 0 0 8px; font-weight: 700; color: var(--ink-2); overflow-wrap: anywhere; }
@@ -748,10 +756,10 @@ body.end-revealed #statusRow { display: none; }
 .toast { position: fixed; left: 50%; top: 40%; transform: translateX(-50%); z-index: 30; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 999px;
   background: var(--ink); color: var(--bg); font-weight: 700; box-shadow: var(--sh-panel); text-align: center; pointer-events: none; }
 
-/* 狀態列那一塊（同五子棋） */
-.safe-top-cover { position: fixed; top: 0; left: 0; right: 0; z-index: 8; pointer-events: none; height: env(safe-area-inset-top, 0px); background: var(--bg); }
-html.has-safe-top .safe-top-cover { height: calc(env(safe-area-inset-top, 0px) + 24px); background: linear-gradient(to bottom, var(--bg) calc(100% - 12px), transparent); }
-#safeProbe { position: fixed; top: 0; left: 0; width: 0; height: env(safe-area-inset-top, 0px); visibility: hidden; pointer-events: none; }
+/* 狀態列那一塊（作者 2026-10-26：iPhone 最上面的字被糊掉）：固定在最上面、安全區那麼高、頁面底色、完全不透明的一條。
+   捲動時字跑到狀態列底下就整個蓋掉，不會半透明地糊在那裡（原來的遮罩下面 12px 是淡出的漸層，字經過那裡就半糊）。
+   每一頁、每一種主題都有（--bg 照主題換）；在結果卡、對話框的遮罩底下（那兩個 z-index 比較高） */
+body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 8; pointer-events: none; height: env(safe-area-inset-top, 0px); background: var(--bg); }
 
 /* ---------- 神將（第 7 級，作者 2026-10-25；照設計稿 shenjiang-ui 第 4 版）：黑漆與金、書法字（Yuji Syuku 的外框，index.html 的 .sj-sprite）、印章「百萬」 ----------
    色號照五子棋天元（gomoku/style.css 的 --lq-*／--gold-*／--tg-off-*），淺色、深色各一組。金色漸層與飛白寫在 svg 的 fill／mask 屬性上
