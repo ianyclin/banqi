@@ -9,7 +9,7 @@
   'use strict';
   var E = window.BanqiEngine, I18N = window.I18N, t = I18N.t, AIX = window.BanqiAI, GS = window.BanqiStats, RT = window.BanqiRating;
   var SND = window.BanqiSound || { play: function () { return false; }, setEnabled: function () {} }; // 音效（sound.js）；沒載到就不出聲
-  var MUS = window.BanqiMusic || { setEnabled: function () {}, duck: function () { return false; } }; // 背景音樂（music.js）；沒載到、曲目是空的就不出聲
+  var MUS = window.BanqiMusic || { setEnabled: function () {}, setStyle: function () {}, duck: function () { return false; } }; // 背景音樂（music.js）；沒載到、曲目是空的就不出聲
   function vurl(p) { return typeof window.vurl === 'function' ? window.vurl(p) : p; } // 帶版本號的網址（index.html 的 vurl；單一檔案版沒有就照舊）
   var TEST = window.BANQI_RELEASE !== true && /[?&]test=1(?:&|$)/.test(location.search);
   var HIDDEN = E.HIDDEN;
@@ -77,10 +77,11 @@
   // danger＝危險提醒（'on'／'off'，預設關（作者 2026-10-26）；見 dangerSquares）。設定只存使用者自己點過的那幾項（saveSettings 只寫 patch），
   // 所以從來沒點過的人換預設以後也跟著變成關；點過「開」的人照舊是開
   // music＝背景音樂（'on'／'off'，預設開；music.js，曲目是空的時候開著也不出聲）
-  var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, noChase: 'off', anim: 'mid', level: 3, sound: 'on', danger: 'off', music: 'on' };
+  // musicStyle＝音樂風格（作者 2026-10-27：'chinese' 中國風（預設）／'acoustic' 木吉他／'all' 全部；music.js 的 setStyle，只在這個風格的曲子裡輪流放）
+  var DEFAULTS = { theme: 'wood', scheme: 'auto', font: 'kai', colDefault: 'cap', drawPlies: 60, noChase: 'off', anim: 'mid', level: 3, sound: 'on', danger: 'off', music: 'on', musicStyle: 'chinese' };
   // level 的選項照 ai.js 的 LEVELS（開始頁的等級滑桿也是；加一級時這裡不用改）
   var CHOICES = { theme: ['wood', 'lacquer'], scheme: ['auto', 'light', 'dark'], colDefault: ['cap', 'hid'], drawPlies: [30, 40, 50, 60], noChase: ['off', 'on'], anim: ['slow', 'mid', 'fast', 'none'], sound: ['on', 'off'], danger: ['on', 'off'], music: ['on', 'off'],
-    level: AIX.LEVELS.map(function (l) { return l.id; }) };
+    musicStyle: ['chinese', 'acoustic', 'all'], level: AIX.LEVELS.map(function (l) { return l.id; }) };
   // 動畫速度：CSS 的 --anim（所有 transition／animation 的秒數乘它）
   var ANIM = { slow: 1.6, mid: 1, fast: 0.5, none: 0 };
   // 棋子字體：設定頁的選項就是這張表（id 記在設定裡；label 是 i18n 的鍵；stack 放進 CSS 的 --font-piece；weight 放進 --piece-wt；
@@ -1728,7 +1729,7 @@
     var s = G.set;
     check('theme', s.theme); check('scheme', s.scheme); check('font', s.font); check('colDefault', s.colDefault);
     check('setDrawPlies', s.drawPlies); check('noChase', s.noChase); check('danger', s.danger); check('anim', s.anim); check('lang', I18N.getLang());
-    check('sound', s.sound); check('music', s.music);
+    check('sound', s.sound); check('music', s.music); check('musicStyle', s.musicStyle);
   }
 
   // 改一項設定：記下來、馬上套用
@@ -1743,6 +1744,7 @@
     else if (k === 'noChase') readSetup(); // 禁止長捉：這一盤不變，下一盤才用（開始頁的規則說明跟著）
     else if (k === 'sound') SND.setEnabled(v === 'on');
     else if (k === 'music') MUS.setEnabled(v === 'on');
+    else if (k === 'musicStyle') MUS.setStyle(v);
   }
   function onSettingInput(e) {
     var el = e.target, v = el.value;
@@ -2345,6 +2347,7 @@
   function init() {
     G.set = readSettings();
     SND.setEnabled(G.set.sound === 'on');
+    MUS.setStyle(G.set.musicStyle);
     MUS.setEnabled(G.set.music === 'on');
     GS.initProfiles(t('profile.defaultName')); // 第一次開：建預設帳號（名字用現在的語言）
     GS.profileList().forEach(function (p) { GS.achSync(p.id); }); // 成就：照現有的紀錄回推（開新版第一次開頁、別的視窗下完的盤），不出結算卡那一行

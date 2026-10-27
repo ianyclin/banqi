@@ -22,7 +22,7 @@
 <!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
 <link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
 <!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
-<script>var BANQI_VERSION = 'v0.2.0'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+<script>var BANQI_VERSION = 'v0.2.1'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
 function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
 document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
 </head>
@@ -270,6 +270,15 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
           <label><input type="radio" name="music" value="off"><span data-i18n="music.off"></span></label>
         </div>
       </div>
+      <!-- 音樂風格（music.js 的 setStyle；作者 2026-10-27）：預設中國風；只在這個風格的曲子裡輪流放，全部＝十二首 -->
+      <div class="card">
+        <h3 id="hMusicStyle" data-i18n="settings.musicStyle"></h3>
+        <div class="seg" role="radiogroup" aria-labelledby="hMusicStyle">
+          <label><input type="radio" name="musicStyle" value="chinese"><span data-i18n="musicStyle.chinese"></span></label>
+          <label><input type="radio" name="musicStyle" value="acoustic"><span data-i18n="musicStyle.acoustic"></span></label>
+          <label><input type="radio" name="musicStyle" value="all"><span data-i18n="musicStyle.all"></span></label>
+        </div>
+      </div>
     </section>
     <section class="set-sec" aria-labelledby="gLook">
       <h2 class="set-group" id="gLook" data-i18n="settings.gLook"></h2>
@@ -376,7 +385,7 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
           <a href="fonts/LICENSES/yuji.txt" data-i18n="lic.full"></a></li>
         <!-- 神將開場字卡背後的武將剪影（index.html 開頭的 #sjSil；來源見 docs/assets.md） -->
         <li data-i18n="lic.silNote"></li>
-        <!-- 背景音樂（music.js 的 TRACKS；作者 2026-10-26 核准沿用現金流的五首）：來源與每一首的網址在 snd/SOURCE.txt -->
+        <!-- 背景音樂（music.js 的 TRACKS；作者 2026-10-26 核准沿用現金流的五首、2026-10-27 選定中國風七首）：來源與每一首的網址在 snd/SOURCE.txt -->
         <li><b data-i18n="lic.musicHead"></b> <span data-i18n="lic.musicLic"></span>・<span class="url">https://pixabay.com/service/license-summary/</span><br>
           <span data-i18n="lic.musicList"></span></li>
       </ul>

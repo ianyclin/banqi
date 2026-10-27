@@ -1,4 +1,6 @@
-暗棋的背景音樂（music.js 的 TRACKS）：五首都是現金流（cashflow/snd/）已經授權的曲子，檔案原封不動複製過來（AAC 雙聲道 96 kbps、44.1 kHz，沒有重新轉檔），檔名照現金流的編號。
+暗棋的背景音樂（music.js 的 TRACKS）：十二首。music-1、2、4、6、8 是「木吉他」（acoustic）那一組，music-10 到 music-16 是「中國風」（chinese）那一組（見下面第二段）。
+
+一、木吉他（acoustic）五首：都是現金流（cashflow/snd/）已經授權的曲子，檔案原封不動複製過來（AAC 雙聲道 96 kbps、44.1 kHz，沒有重新轉檔），檔名照現金流的編號。
 作者 2026-10-10 從 Pixabay 圈選給現金流用（原檔 MP3 256 kbps 在現金流的 gitignore 的 art-src/audio/music/；轉檔方式見 cashflow/snd/SOURCE.txt）；2026-10-26 核准暗棋沿用這五首。
 授權：Pixabay Content License（https://pixabay.com/service/license-summary/）—— 免費、不必署名、可改編；不可原樣單獨轉售。
 注意：Travel Acoustic Guitar 頁面標「Content ID Registered」（YouTube 內容識別已登記），放進 app 無妨，若拿去做影片可能被認領。
@@ -16,3 +18,33 @@ music-2.m4a　〈山路〉　Beautiful Folk Guitar／331music　　https://pixab
 music-4.m4a　〈暖陽〉　Warm Acoustic Guitar／Universfield　https://pixabay.com/music/acoustic-group-warm-acoustic-guitar-232912/　原檔 universfield-warm-acoustic-guitar-232912.mp3　（＝ cashflow/snd/music-4.m4a）
 music-6.m4a　〈棋局〉　Italian Game／Turning_Pages　　　　https://pixabay.com/music/lofi-italian-game-466356/　原檔 turning_pages-italian-game-466356.mp3　（＝ cashflow/snd/music-6.m4a）
 music-8.m4a　〈微風〉　Bossa Nova Cafe Morning Breeze／alex-morgan　https://pixabay.com/music/bossa-nova-bossa-nova-cafe-morning-breeze-573876/　原檔 alex-morgan-bossa-nova-cafe-morning-breeze-573876.mp3　（＝ cashflow/snd/music-8.m4a）
+
+二、中國風（chinese）七首：music-10 到 music-16（暗棋自己的，現金流沒有；從 10 開始編號，不跟現金流 cashflow/snd/ 的 music-1 到 music-9 撞號）。
+選曲：music-10 到 music-13 四首是作者 2026-10-27 從 Pixabay 的候選清單（第二版的 #4、#5、#6、#9）試聽後選定；music-14 到 music-16 三首是作者同一天再核准加入的。
+下載：2026-10-27 從 Pixabay 曲目頁的下載網址（cdn.pixabay.com）抓原檔 MP3（256 kbps、44.1 kHz 雙聲道）；原檔不放進 repo，下面記原檔的檔名、大小與 md5。
+授權：Pixabay Content License（https://pixabay.com/service/license-summary/）—— 七首的曲目頁 2026-10-27 都寫「Free for use under the Pixabay Content License」；免費、不必署名、可改編；不可原樣單獨轉售。
+Content ID：music-10、11、14、15、16 的曲目頁標「Content ID Registered」（YouTube 內容識別已登記），放進 app 無妨，若拿去做影片可能被認領。music-12、13 沒有標。
+AI 生成：
+  music-12（By The Quiet Water）：曲目頁的標籤有「Ai Generated」、頁面標「AI generated」；作者 kaazoom 的個人簡介寫「All my music is created using AI, and mastered and edited by me.」（他所有的曲子都是用 AI 做的）。
+  music-10（Elegant Chinese Folk Music）、music-16（夜游秦淮）：曲目頁標「AI generated」（XunLang_Studio；關鍵字標籤裡沒有 Ai Generated）。
+  music-11、13、14、15：曲目頁沒有標。
+人聲：七首的曲目頁（標題、說明、標籤）都沒有提到人聲；music-14、15、16 是 2026-10-27 第一次打開曲目頁核對（長度、授權、Content ID、AI、人聲）以後才下載的。
+轉檔（2026-10-27，ffmpeg 6.1）：裁掉頭尾低於 −50 dBFS 的部分（短於 50 ms、後面又靜音 50 ms 以上的孤立突波算在靜音裡）、AAC LC 雙聲道 96 kbps、44.1 kHz、
+  moov 放在檔案開頭（-movflags +faststart，<audio> 先拿到長度）、不帶原檔的 metadata；沒有做響度正規化（跟上面五首一樣用 music.js 的每一首增益拉齊）。
+音量：同上面五首的量法（ffmpeg loudnorm 的整合響度 I、真峰值 TP；volumedetect 的平均 mean；量的是轉好的 .m4a），db ＝ −14 − I（含總音量 −18 dB 以後都是 −32 LUFS）：
+  music-10  I −11.9 LUFS  TP +0.7 dBTP   mean −14.0 dB  → db −2.1
+  music-11  I −17.7 LUFS  TP −1.8 dBTP   mean −22.0 dB  → db +3.7
+  music-12  I −11.3 LUFS  TP +1.8 dBTP   mean −14.0 dB  → db −2.7
+  music-13  I −26.1 LUFS  TP −16.1 dBTP  mean −30.1 dB  → db +12.1（原檔本來就很小聲）
+  music-14  I −20.2 LUFS  TP −3.8 dBTP   mean −24.2 dB  → db +6.2
+  music-15  I −17.8 LUFS  TP −1.9 dBTP   mean −22.7 dB  → db +3.8
+  music-16  I −10.3 LUFS  TP +1.0 dBTP   mean −11.7 dB  → db −3.7
+  放出來的真峰值約 −22 到 −16 dBFS。
+
+music-10.m4a　Elegant Chinese Folk Music／XunLang_Studio　https://pixabay.com/music/china-elegant-chinese-folk-music-517980/　原檔 xunlang_studio-elegant-chinese-folk-music-517980.mp3（4198818 位元組、2:11、md5 cc5f78566e0e4a129eef6385be087e2f）
+music-11.m4a　Giếng Nước Vừa Trong Vừa Mát (Guzheng) - Background Music For Videos／VPRODMUSIC_Asia_BGM　https://pixabay.com/music/china-gi%E1%BA%BFng-n%C6%B0%E1%BB%9Bc-v%E1%BB%ABa-trong-v%E1%BB%ABa-m%C3%A1t-guzheng-background-music-for-videos-219702/　原檔 vprodmusic_asia_bgm-gieng-nuoc-vua-trong-vua-mat-guzheng-background-music-for-videos-219702.mp3（5234520 位元組、2:44、md5 7ba015d4fe6a6af93d4c00b319568b30）
+music-12.m4a　By The Quiet Water(Full Version)／kaazoom　https://pixabay.com/music/china-by-the-quiet-waterfull-version-383317/　原檔 kaazoom-by-the-quiet-waterfull-version-383317.mp3（6734158 位元組、3:30、md5 993855b21a0b8fc7bd3e5a1c263b467a）
+music-13.m4a　Chinese Dizi Flute／NourishedByMusic　https://pixabay.com/music/china-chinese-dizi-flute-120669/　原檔 nourishedbymusic-chinese-dizi-flute-120669.mp3（3473240 位元組、1:49、md5 fe28c483ccce58baed6917a924105b35）
+music-14.m4a　Ruộng Đồng Xanh Bát Ngát Cánh Cò (Guzheng) - Asia BGM For Videos／VPRODMUSIC_Asia_BGM　https://pixabay.com/music/china-ru%E1%BB%99ng-%C4%91%E1%BB%93ng-xanh-b%C3%A1t-ng%C3%A1t-c%C3%A1nh-c%C3%B2-guzheng-asia-bgm-for-videos-219703/　原檔 vprodmusic_asia_bgm-ruong-ong-xanh-bat-ngat-canh-co-guzheng-asia-bgm-for-videos-219703.mp3（5400868 位元組、2:49、md5 89d916f8b9a5fb64c6569c828e8c81e1）
+music-15.m4a　Tát Nước Đầu Đình Làng Quê (Guzheng) - Asia BGM For Videos／VPRODMUSIC_Asia_BGM　https://pixabay.com/music/china-t%C3%A1t-n%C6%B0%E1%BB%9Bc-%C4%91%E1%BA%A7u-%C4%91%C3%ACnh-l%C3%A0ng-qu%C3%AA-guzheng-asia-bgm-for-videos-219699/　原檔 vprodmusic_asia_bgm-tat-nuoc-au-inh-lang-que-guzheng-asia-bgm-for-videos-219699.mp3（4782289 位元組、2:29、md5 34732f8419532f5257330cc8650ccd19）
+music-16.m4a　夜游秦淮／XunLang_Studio　https://pixabay.com/music/ambient-%E5%A4%9C%E6%B8%B8%E7%A7%A6%E6%B7%AE-517931/　原檔 xunlang_studio--517931.mp3（7009175 位元組、3:39、md5 2629d2a214317e7e0ff64492c1d769a5）
