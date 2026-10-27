@@ -1,5 +1,6 @@
 /*
- * 暗棋 service worker（草稿：還沒有任何地方註冊它；要接上時見 tools/README-release.md 的「index.html 接線清單」）。
+ * 暗棋 service worker。發布版才註冊：index.html 最後那一個 <script>：if (BANQI_RELEASE === true && 'serviceWorker' in navigator) register('sw.js')
+ * （來源的 BANQI_RELEASE 是 false，開發時不裝；tools/release.py 在 dist/ 的副本改成 true）。
  *
  * 做法：完全離線。安裝時把整個 app（下面的 SHELL，＝ tools/release.py 的白名單去掉 sw.js 自己）抓進一個帶版本號的快取，
  * 之後同網域、在本 SW 範圍（banqi/）內的 GET 一律先查快取（cache-first），快取沒有才走網路、走網路的結果不存。
@@ -17,7 +18,7 @@
  * （有 MessageChannel 的 port 就回 port，沒有就回給發訊息的那個頁面）。
  */
 /* eslint-env serviceworker */
-var BANQI_VERSION = 'v0.2.1';
+var BANQI_VERSION = 'v0.2.2';
 var CACHE_PREFIX = 'banqi-';
 var CACHE = CACHE_PREFIX + BANQI_VERSION;
 // 背景音樂（music.js；作者 2026-10-26）：snd/ 底下的曲子一首 1–2 MB，不放進 SHELL（安裝時不下載）。

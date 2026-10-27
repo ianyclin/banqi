@@ -725,7 +725,32 @@ button.danger:disabled { opacity: .45; }
 .lic-list a { color: var(--accent); font-weight: 700; }
 .ver-line { text-align: center; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
 /* 設定頁開著時，對局的結果卡與提示先收起來（回到對局頁又會出現） */
-body[data-page="settings"] .end-overlay, body[data-page="settings"] .toast { display: none !important; }
+body[data-page="settings"] .end-overlay, body[data-page="settings"] .toast,
+body[data-page="about"] .end-overlay, body[data-page="about"] .toast { display: none !important; }
+
+/* 關於頁（照五子棋的關於頁）：整頁的字至少 14px（--fs-small 在這一頁換成 14px：說明小字、授權卡、返回鈕都跟著變）；點的地方至少 44px 高 */
+.about-entry { text-align: center; margin: 16px 0 4px; }
+#about { --fs-small: .875rem; overflow-wrap: anywhere; }
+#about .card h2 { font-size: 1.0625rem; }
+#about .card h3 { margin-top: 12px; }
+#about .card p { margin: 0 0 8px; line-height: 1.6; }
+#about .card > :last-child { margin-bottom: 0; }
+#aboutMaker { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; color: var(--accent); font-weight: 700; }
+.about-keys, .about-levels, #about .refs { margin: 0 0 8px; padding-left: 1.4em; line-height: 1.6; }
+.about-keys li + li, .about-levels li + li, #about .refs li + li { margin-top: 4px; }
+.about-keys code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .875rem; color: var(--ink); }
+.about-more summary { font-weight: 700; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.gloss { margin: 8px 0 0; line-height: 1.6; }
+.gloss dt { font-weight: 700; margin-top: 10px; }
+.gloss dt:first-child { margin-top: 0; }
+.gloss dd { margin: 2px 0 0; color: var(--ink-2); }
+#about .lic-list a { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* 有新版本（照五子棋的 .update-box）：main 最上面、置中的一顆膠囊；樣子就是全站的次要鈕（button.secondary：--surface 底、--btn-line 框，不加陰影、點的範圍 44），字放大到 14px。
+   跟著版面走、不用 fixed：fixed 在上方會蓋到頁首的帳號／紀錄／返回／認輸／齒輪，在下方會蓋到開始、認輸和捲上來的選項（2026-10-27 逐頁量過，b01 的 AB-HIT）。
+   出現、收起時 app.js 的 seenVersion 發一次 resize：對局頁、回放頁的格子扣掉它的高 */
+.update-box { display: flex; justify-content: center; margin: 0 0 8px; }
+button.update-pill { font-size: .875rem; max-width: 100%; }
 
 /* 結束 */
 .end-overlay { position: fixed; inset: 0; z-index: 20; background: var(--overlay); display: flex; align-items: center; justify-content: center;

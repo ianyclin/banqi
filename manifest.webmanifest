@@ -1,6 +1,7 @@
 {
   "name": "暗棋",
   "short_name": "暗棋",
+  "description": "不用註冊的網頁暗棋：跟電腦下（七個等級）或兩人同機，經典與連吃兩種玩法。資料只存在你的裝置。",
   "lang": "zh-Hant",
   "start_url": "./",
   "scope": "./",

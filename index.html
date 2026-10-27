@@ -12,6 +12,13 @@
   var BG = { 'wood-light': '#f4eee2', 'wood-dark': '#1c1814', 'lacquer-light': '#ebe5da', 'lacquer-dark': '#0e0b0a' };
   var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', BG[th + '-' + sc]); } catch (e) { /* ignore */ } })();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 分享連結時的說明與預覽（照五子棋 tools/release.py 的 META_ZH 寫法）：og:image 用白名單裡已經有的 icons/icon-512.png，要寫完整網址（公開站台 https://ianyclin.github.io/banqi/） -->
+<meta name="description" content="不用註冊的網頁暗棋：跟電腦下（七個等級）或兩人同機，經典與連吃兩種玩法。資料只存在你的裝置。">
+<meta property="og:title" content="暗棋">
+<meta property="og:description" content="不用註冊的網頁暗棋：跟電腦下（七個等級）或兩人同機，經典與連吃兩種玩法。資料只存在你的裝置。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://ianyclin.github.io/banqi/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
 <title>暗棋</title>
 <!-- 圖示（icons/，見 icons/make-icons.py） -->
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
@@ -22,7 +29,7 @@
 <!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
 <link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
 <!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
-<script>var BANQI_VERSION = 'v0.2.1'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+<script>var BANQI_VERSION = 'v0.2.2'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
 function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
 document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
 </head>
@@ -44,6 +51,9 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
 <mask id="sjFb" maskUnits="userSpaceOnUse" x="-100" y="-100" width="2200" height="1200"><rect x="-100" y="-100" width="2200" height="1200" fill="#fff"/><rect x="-100" y="-100" width="2200" height="1200" fill="url(#sjFbP)"/></mask>
 </defs></svg>
 <main>
+  <!-- 有新版本（照五子棋的 updateBox）：接手這一頁的 sw.js、或 ai-worker.js 啟動時回報的版本號，和這一頁的 BANQI_VERSION 不一樣時出現（app.js 的 seenVersion）；點了重新整理，不自動重整。
+       放在 main 的最上面、跟著版面走（不是浮在畫面上）：每一頁的鈕都往下讓，膠囊不會蓋到任何一顆（固定在上方會蓋到頁首的帳號、返回、認輸，固定在下方會蓋到開始、認輸、設定頁的選項；b01 的 AB-HIT 逐頁量） -->
+  <div id="updateBox" class="update-box" role="status" hidden><button type="button" id="updatePill" class="secondary update-pill" data-i18n="notice.update"></button></div>
   <!-- 開始頁 -->
   <section id="start" class="page">
     <!-- 標題那一列（作者 2026-10-26：一列）：左邊標題＋三個子，右邊帳號、紀錄、設定。語言鈕拿掉了（語言在設定頁）。
@@ -251,7 +261,7 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
       <h1 class="set-title" data-i18n="settings.title"></h1>
       <span class="topbar-spacer" aria-hidden="true"></span>
     </div>
-    <!-- 由上往下（作者 2026-10-26）：聲音 → 外觀 → 對局 → 語言 → 授權與版本。每一組一個 section，上面一行小小的組名（.set-group，h2）；卡片的標題是 h3 -->
+    <!-- 由上往下（作者 2026-10-26）：聲音 → 外觀 → 對局 → 語言 → 關於（授權卡在關於頁裡）與版本。每一組一個 section，上面一行小小的組名（.set-group，h2）；卡片的標題是 h3 -->
     <section class="set-sec" aria-labelledby="gSound">
       <h2 class="set-group" id="gSound" data-i18n="settings.gSound"></h2>
       <!-- 音效（sound.js，當場合成、沒有音檔）：預設開；動畫「無」、減少動態效果都不關 -->
@@ -361,6 +371,82 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
         </div>
       </div>
     </section>
+    <!-- 關於（照五子棋的關於頁）：原來在這裡的授權卡搬到關於頁（#about）裡 -->
+    <p class="about-entry"><button type="button" id="aboutBtn" class="secondary" data-i18n="about.title"></button></p>
+    <!-- 版本（作者 2026-10-25）：「暗棋 v0.1.1」，數字來自上面的 BANQI_VERSION（app.js 的 applyLang 填） -->
+    <p class="note ver-line" id="verLine"></p>
+  </section>
+
+  <!-- 關於頁（設定頁最下面的「關於」進來，返回回到設定頁；照五子棋 gomoku/index.html 的 #about、gomoku/docs/review-mode-spec.md 第 I 段）。
+       文字都在 i18n.js 的 about.*／gloss.*；版本、七個等級、積分的數字由 app.js 的 renderAbout 照 BANQI_VERSION、ai.js 的 LEVELS、rating.js 填 -->
+  <section id="about" class="page" hidden>
+    <div class="topbar">
+      <button type="button" id="aboutBack" class="link back" data-i18n="settings.back"></button>
+      <h1 class="set-title" data-i18n="about.title"></h1>
+      <span class="topbar-spacer" aria-hidden="true"></span>
+    </div>
+    <div class="card">
+      <h2 id="aboutVersion"></h2>
+      <p><span data-i18n="about.makerLabel"></span><a id="aboutMaker" href="https://www.facebook.com/profile.php?id=100084000897269" target="_blank" rel="noopener" data-i18n="about.makerName"></a></p>
+      <p data-i18n="about.copyright"></p>
+      <p data-i18n="about.collab"></p>
+    </div>
+    <div class="card">
+      <h2 data-i18n="about.whatTitle"></h2>
+      <p data-i18n="about.what"></p>
+    </div>
+    <!-- 隱私與離線：存了哪幾個鍵（app.js 的 SETTINGS_KEY／RESUME_KEY、stats.js 的 PKEY／GKEY／RKEY；test.js 核對）、不外傳、離線（sw.js）、記得匯出 -->
+    <div class="card">
+      <h2 data-i18n="about.privacyTitle"></h2>
+      <p data-i18n="about.storedIntro"></p>
+      <ul class="about-keys">
+        <li><code>banqi.settings.v1</code> <span data-i18n="about.keySettings"></span></li>
+        <li><code>banqi.profiles.v1</code> <span data-i18n="about.keyProfiles"></span></li>
+        <li><code>banqi.games.v1</code> <span data-i18n="about.keyGames"></span></li>
+        <li><code>banqi.recs.v1</code> <span data-i18n="about.keyRecs"></span></li>
+        <li><code>banqi.resume.v1</code> <span data-i18n="about.keyResume"></span></li>
+      </ul>
+      <p data-i18n="about.noSend"></p>
+      <p data-i18n="about.offline"></p>
+      <p id="aboutBackup"></p>
+    </div>
+    <!-- 電腦對手與積分：七個等級一級一行（app.js 照 ai.js 的 LEVELS 產生）、積分與徽章（數字照 rating.js） -->
+    <div class="card">
+      <h2 data-i18n="about.aiTitle"></h2>
+      <p data-i18n="about.aiIntro"></p>
+      <ol class="about-levels" id="aboutLevels"></ol>
+      <h3 data-i18n="about.pointsTitle"></h3>
+      <p id="aboutPoints"></p>
+      <p id="aboutBadges"></p>
+    </div>
+    <!-- 名詞小辭典：預設收起；用字照 docs/rules-spec.md 與畫面上的叫法 -->
+    <details class="card about-more" id="glossCard">
+      <summary data-i18n="about.glossTitle"></summary>
+      <dl class="gloss">
+        <dt data-i18n="gloss.hidden"></dt><dd data-i18n="gloss.hiddenDef"></dd>
+        <dt data-i18n="gloss.flip"></dt><dd data-i18n="gloss.flipDef"></dd>
+        <dt data-i18n="gloss.move"></dt><dd data-i18n="gloss.moveDef"></dd>
+        <dt data-i18n="gloss.capture"></dt><dd data-i18n="gloss.captureDef"></dd>
+        <dt data-i18n="gloss.rank"></dt><dd data-i18n="gloss.rankDef"></dd>
+        <dt data-i18n="gloss.cannon"></dt><dd data-i18n="gloss.cannonDef"></dd>
+        <dt data-i18n="gloss.stuck"></dt><dd data-i18n="gloss.stuckDef"></dd>
+        <dt data-i18n="gloss.draw"></dt><dd data-i18n="gloss.drawDef"></dd>
+        <dt data-i18n="gloss.chase"></dt><dd data-i18n="gloss.chaseDef"></dd>
+        <dt data-i18n="gloss.chain"></dt><dd data-i18n="gloss.chainDef"></dd>
+        <dt data-i18n="gloss.attack"></dt><dd data-i18n="gloss.attackDef"></dd>
+      </dl>
+    </details>
+    <!-- 參考資料：只列 docs/rules-spec.md「來源」那一節寫的（原文沒有放進 App，所以不放連結） -->
+    <div class="card">
+      <h2 data-i18n="about.refTitle"></h2>
+      <p data-i18n="about.refIntro"></p>
+      <ul class="refs">
+        <li data-i18n="about.refTcg"></li>
+        <li data-i18n="about.refWikiZh"></li>
+        <li data-i18n="about.refWikiEn"></li>
+      </ul>
+      <p data-i18n="about.refAuthor"></p>
+    </div>
     <!-- 授權（SIL OFL 1.1 第 2 條：散布時附著作權聲明與授權全文）。字型名稱、著作權那一行照原文，不翻 -->
     <details class="card lic" id="licCard">
       <summary data-i18n="lic.title"></summary>
@@ -391,8 +477,6 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
       </ul>
       <p class="note" data-i18n="lic.folder"></p>
     </details>
-    <!-- 版本（作者 2026-10-25）：「暗棋 v0.1.1」，數字來自上面的 BANQI_VERSION（app.js 的 applyLang 填） -->
-    <p class="note ver-line" id="verLine"></p>
   </section>
 </main>
 

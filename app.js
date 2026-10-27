@@ -161,6 +161,7 @@
       w.postMessage(msg);
     },
     onMessage: function (d) {
+      if (d.type === 'hello') { seenVersion('worker', d.version); return; } // Worker 啟動時回報的版本號（有新版本）；沒有 id
       var p = this.pending;
       if (!p || d.id !== p.id) return; // 取消以後才到的舊回覆
       if (d.type === 'progress') { p.onProgress(d); return; }
@@ -1166,6 +1167,7 @@
     $('start').hidden = name !== 'start';
     $('game').hidden = name !== 'game';
     $('settings').hidden = name !== 'settings';
+    $('about').hidden = name !== 'about';
     $('records').hidden = name !== 'records';
     $('profiles').hidden = name !== 'profiles';
     $('replay').hidden = name !== 'replay'; // 棋局回放（replay.js）
@@ -1695,6 +1697,82 @@
     } else showPage('start');
     var b = G.backBtn && $(G.backBtn);
     if (b && b.getClientRects().length) b.focus({ preventScroll: true });
+  }
+
+  // ------------------------------------------------------------ 關於頁（照五子棋的關於頁）：設定頁最下面的「關於」進來，返回回到設定頁（設定頁的返回照舊回到原來那一頁）
+  // 數字不寫死在字裡：版本＝BANQI_VERSION；七個等級＝ai.js 的 LEVELS（深度、節點預算）；積分＝rating.js（起始分、K、盤數、徽章門檻、降級緩衝）
+  var ANCHOR_LEVEL = 4; // rating.js 檔頭：電腦各級的積分以第 4 級為錨（經典、連吃都是同一個分數）
+  function nodesText(n) {
+    return t('about.nodesFmt', { w: n / 10000, n: String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') });
+  }
+  function renderAbout() {
+    $('aboutVersion').textContent = t('settings.version', { v: window.BANQI_VERSION || '' });
+    $('aboutBackup').textContent = t('about.backup', { records: t('start.records'), 'export': t('io.export') });
+    var ol = $('aboutLevels');
+    ol.textContent = '';
+    AIX.LEVELS.forEach(function (l) {
+      var li = document.createElement('li'), b = document.createElement('b');
+      b.textContent = t(l.name);
+      li.appendChild(b);
+      li.appendChild(document.createTextNode(t('about.lvSep') + t('about.lv' + l.id, { depth: l.depth, nodes: nodesText(l.nodes) })));
+      ol.appendChild(li);
+    });
+    $('aboutPoints').textContent = t('about.points', { start: RT.START, games: RT.PROVISIONAL_GAMES, kNew: RT.kFactor(0), kNormal: RT.kFactor(RT.PROVISIONAL_GAMES),
+      anchorLevel: t(levelInfo(ANCHOR_LEVEL).name), anchor: RT.aiRating('classic', ANCHOR_LEVEL) });
+    var badges = RT.BADGES.map(function (b, i) {
+      return i === 0 ? t('about.badgeLow', { name: t('badge.' + b.key), n: RT.BADGES[1].min }) : t('about.badgeAt', { name: t('badge.' + b.key), n: b.min });
+    });
+    $('aboutBadges').textContent = t('about.badges', { badges: badges.join(t('about.listSep')), buffer: RT.DEMOTE_BUFFER });
+  }
+  function openAbout() {
+    renderAbout();
+    showPage('about');
+    $('aboutBack').focus({ preventScroll: true });
+  }
+  function closeAbout() {
+    showPage('settings');
+    $('aboutBtn').focus();
+  }
+
+  // ------------------------------------------------------------ 有新版本（照五子棋的 updateBox）：別的地方回報的版本號和這一頁的 BANQI_VERSION 不一樣時，頁首出一條膠囊，點了重新整理（不自動重整，對局才不會不見）。
+  // 回報的地方兩個：sw.js（發布版：新的 SW 裝好、或接手了這一頁；cache-first，所以發布版靠這一條知道有新版）；
+  // ai-worker.js 啟動時的 hello（沒有 SW 的時候，例如開發站台：頁面開著時換了檔，之後才開的 Worker 拿到新檔。發布版的 Worker 檔由接手的 SW 從它的快取給，跟 SW 同一版，hello 不會比 SW 先知道）。
+  // 版本號不一樣：出；之後又有回報、而且＝這一頁的版本號：收起來。沒給版本號（舊版的 Worker 沒有 hello）、空字串、頁面沒有版本號：都不動。src 只是記下來給測試看。
+  // 膠囊在 main 的最上面、跟著版面走（不浮在別的東西上面，不會擋到任何一顆鈕），出現、收起都改了版面的高：發一次 resize，對局頁、回放頁重算格子
+  var versionLog = [];
+  function seenVersion(src, v) {
+    var mine = window.BANQI_VERSION || '', known = typeof v === 'string' && v !== '' && mine !== '', diff = known && v !== mine, box = $('updateBox');
+    versionLog.push({ src: src, v: v, diff: diff });
+    if (known && box.hidden !== !diff) {
+      box.hidden = !diff;
+      window.dispatchEvent(new Event('resize'));
+    }
+    return diff;
+  }
+  // sw.js（只在發布版註冊，見 index.html 最後）：問它的版本號（postMessage { type: 'version' }，它從 MessageChannel 回 { type: 'version', version }）。
+  // 問的時機：開頁時接手這一頁的那一個、新的 SW 接手（controllerchange；第一次裝好時也會有一次，版本號一樣就不出）、有一個裝好在等（waiting）
+  function watchSW() {
+    var sw = navigator.serviceWorker;
+    if (window.BANQI_RELEASE !== true || !sw) return;
+    function ask(w) {
+      if (!w || typeof MessageChannel !== 'function') return;
+      try {
+        var ch = new MessageChannel();
+        ch.port1.onmessage = function (e) { var d = e.data || {}; if (d.type === 'version') seenVersion('sw', d.version); };
+        w.postMessage({ type: 'version' }, [ch.port2]);
+      } catch (e) { /* 問不到就算了 */ }
+    }
+    sw.addEventListener('controllerchange', function () { ask(sw.controller); });
+    ask(sw.controller);
+    if (!sw.getRegistration) return;
+    sw.getRegistration().then(function (reg) {
+      if (!reg) return;
+      if (reg.waiting && sw.controller) ask(reg.waiting);
+      reg.addEventListener('updatefound', function () {
+        var w = reg.installing;
+        if (w) w.addEventListener('statechange', function () { if (w.state === 'installed' && sw.controller) ask(w); });
+      });
+    }, function () { /* 無 */ });
   }
 
   // 設定頁的棋子字體選項：照 FONTS 表產生（每一項的字樣用它自己的字型）
@@ -2330,6 +2408,7 @@
     document.title = t('app.title');
     renderLevel();
     $('verLine').textContent = t('settings.version', { v: window.BANQI_VERSION || '' });
+    renderAbout();
     readSetup();
     check('lang', I18N.getLang());
     ['top', 'bottom'].forEach(function (k) {
@@ -2377,6 +2456,10 @@
     $('setBtnStart').addEventListener('click', openSettings);
     $('setBtnGame').addEventListener('click', openSettings);
     $('setBack').addEventListener('click', closeSettings);
+    $('aboutBtn').addEventListener('click', openAbout);
+    $('aboutBack').addEventListener('click', closeAbout);
+    $('updatePill').addEventListener('click', function () { location.reload(); });
+    watchSW();
     $('goBtn').addEventListener('click', function () { readSetup(); startGame(G.setup); });
     $('recBtn').addEventListener('click', recommend);
     $('stopBtn').addEventListener('click', function () {
@@ -2460,6 +2543,8 @@
       MUS: MUS,
       fitStartBar: fitStartBar, BAR_FITS: BAR_FITS,
       dangerSquares: dangerSquares,
+      // 關於頁、有新版本：假裝某個地方回報了版本號 v（回傳有沒有出膠囊）、看過的版本號
+      renderAbout: renderAbout, seenVersion: seenVersion, versionLog: function () { return versionLog.slice(); },
       // 匯出／匯入：最後一次匯出的 { name, text }、匯入一段文字（跟選檔案一樣跑完、出那一句）
       lastExport: function () { return lastExport; }, exportBackup: exportBackup, importText: function (text) { return importDone(GS.importText(text)); }, importMsg: importMsg,
       // 神將（第 7 級）：開場字卡的狀態、書法字寫到哪一幀、跳過
