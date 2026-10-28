@@ -29,7 +29,7 @@
 <!-- 預設的棋子字型（霞鶩文楷子集，內部名稱 Banqi Kai TC，只有 14 個字、約 4.7 KB）先載，棋子不會先用系統字畫一次再換 -->
 <link rel="preload" href="fonts/lxgw-wenkai-tc.woff2" as="font" type="font/woff2" crossorigin>
 <!-- 版本號與載入網址（tools/README-release.md 第 7 節第一組）：manifest、style.css、script 都帶 ?v=版本號，改版時瀏覽器一定重抓 -->
-<script>var BANQI_VERSION = 'v0.2.2'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
+<script>var BANQI_VERSION = 'v0.2.3'; // 版本號：發布時 tools/release.py 在 dist/ 的副本裡改
 function vurl(p) { return p + '?v=' + encodeURIComponent(BANQI_VERSION); }
 document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '">\n<link rel="stylesheet" href="' + vurl('style.css') + '">');</script>
 </head>
@@ -146,6 +146,23 @@ document.write('<link rel="manifest" href="' + vurl('manifest.webmanifest') + '"
         <li data-i18n="rules.chain3"></li>
         <li data-i18n="rules.chain4"></li>
       </ul>
+    </details>
+    <!-- 技巧：預設收起，樣子照規則卡（同一個 .rules）；字都在 i18n.js 的 tips.* -->
+    <details class="card rules" id="tipsCard">
+      <summary data-i18n="tips.title"></summary>
+      <ul>
+        <li data-i18n="tips.t1"></li>
+        <li data-i18n="tips.t2"></li>
+        <li data-i18n="tips.t3"></li>
+        <li data-i18n="tips.t4"></li>
+        <li data-i18n="tips.t5"></li>
+        <li data-i18n="tips.t6"></li>
+        <li data-i18n="tips.t7"></li>
+        <li data-i18n="tips.t8"></li>
+        <li data-i18n="tips.t9"></li>
+        <li data-i18n="tips.t10"></li>
+      </ul>
+      <p class="tips-src" data-i18n="tips.src"></p>
     </details>
   </section>
 

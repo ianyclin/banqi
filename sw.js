@@ -18,7 +18,7 @@
  * （有 MessageChannel 的 port 就回 port，沒有就回給發訊息的那個頁面）。
  */
 /* eslint-env serviceworker */
-var BANQI_VERSION = 'v0.2.2';
+var BANQI_VERSION = 'v0.2.3';
 var CACHE_PREFIX = 'banqi-';
 var CACHE = CACHE_PREFIX + BANQI_VERSION;
 // 背景音樂（music.js；作者 2026-10-26）：snd/ 底下的曲子一首 1–2 MB，不放進 SHELL（安裝時不下載）。

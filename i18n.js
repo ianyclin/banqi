@@ -64,6 +64,21 @@
       'rules.chain3': '炮也可以隔一個子跳去吃蓋著的子，翻出對方的子就一定吃得掉。炮不能直接吃旁邊蓋著的子。',
       'rules.chain4': '一整串連吃算一步。連吃不能悔棋。',
 
+      // 技巧（開始頁規則卡下面那一張，作者 2026-10-28 核准十條）：用字照 docs/rules-spec.md 與畫面上的叫法（「未翻」＝兩欄的欄頭、「停在這裡」＝連吃中的鈕）；
+      // 第 3 條寫「最厲害」不寫「最強」（第 6 級的舊名字，測試擋著整本字典不能有）、第 5 條加上兵、炮的例外（規格 4.2、4.3）
+      'tips.title': '技巧',
+      'tips.t1': '翻之前先看「未翻」欄：還蓋著哪些子，App 都幫你算好了。',
+      'tips.t2': '別在自己的大子旁邊亂翻：翻出能吃它的對方子，它可能馬上被吃。還沒翻的子裡，能吃它的越多，越危險。',
+      'tips.t3': '帥不一定最厲害：對方的兵（卒）能吃帥。先清掉對方的兵，你的帥就安全得多。',
+      'tips.t4': '一個子值多少，看對方還剩幾個子吃得掉它。吃得掉它的越少，它越值錢，所以仕常常比帥好用。',
+      'tips.t5': '炮很兇，也很脆：它隔一子跳吃，不看大小；可是它不能吃緊貼著的子，除了兵（卒）和炮（包），任何子貼到它旁邊都能吃它。',
+      'tips.t6': '別把子走進一格寬的死巷，被追就無路可逃。被追時往 2×2 以上的空地跑比較好躲，但最好還有暗子可翻或別的子可走；只剩一個子在逃，常常還是會被追到。',
+      'tips.t7': '領先時就換子：剩的子越少，差距越明顯。',
+      'tips.t8': '落後時，可以靠平手規則拖成平手（不吃不翻的步數、同一盤面出現三次）；領先時要主動逼出進展，別被拖到平手。',
+      'tips.t9': '連吃可以停：再吃下一口，你的子會停在危險的地方的話，就按「停在這裡」。',
+      'tips.t10': '連吃玩法裡，攻擊暗子是賭博：翻出吃不了的子，這一步就結束。用小子去試，失敗了損失也小。炮隔一子攻擊暗子，翻出對方的子一定吃得掉。',
+      'tips.src': '部分整理自英文維基百科〈Banqi〉條目的策略一節。',
+
       // 對局頁
       'side.you': '你',
       'side.bot': '電腦',
@@ -498,6 +513,19 @@
       'rules.chain2': 'It may also attack a face-down piece next to it: the piece is turned over; if you can capture it, you do and may go on. If it is your own piece or too strong, it stays there face up, your piece does not move, and the move ends.',
       'rules.chain3': 'A Cannon may also jump onto a face-down piece; if it is an enemy piece, the Cannon always captures it. A Cannon cannot attack a face-down piece right next to it.',
       'rules.chain4': 'A whole chain counts as one move. Chains cannot be undone.',
+
+      'tips.title': 'Tips',
+      'tips.t1': 'Before you flip, check the “down” column: the app keeps count of every piece still face down.',
+      'tips.t2': 'Don’t flip next to a strong piece of yours: if you turn up an enemy piece that can capture it, it may be captured right away. The more hidden pieces that can capture it, the bigger the risk.',
+      'tips.t3': 'The King is not always the strongest: enemy Soldiers can capture it. Clear out the enemy Soldiers first, and your King is much safer.',
+      'tips.t4': 'A piece is worth more the fewer enemy pieces are left that can capture it. That is why an Advisor is often more useful than the King.',
+      'tips.t5': 'The Cannon is fierce but fragile: it jumps one piece to capture, whatever the rank, but cannot capture a piece right next to it, and any piece next to it except a Soldier or a Cannon can capture it.',
+      'tips.t6': 'Don’t move into a dead end one square wide: if chased, you have nowhere to go. When chased, an open area of 2×2 or more helps you dodge, but you also want a spare move (a piece to flip or another piece to move); a lone piece on the run is often still caught.',
+      'tips.t7': 'When ahead, trade pieces: the fewer pieces left, the clearer your lead.',
+      'tips.t8': 'When behind, you can hold a draw with the draw rules (moves with no capture or flip, the same position a third time). When ahead, force progress so you aren’t held to a draw.',
+      'tips.t9': 'You can stop a chain: if the next capture would leave your piece in danger, tap “Stop here”.',
+      'tips.t10': 'In Chain rules, attacking a face-down piece is a gamble: if it turns out to be one you can’t capture, your move ends. Test with a small piece, so a miss costs little. A Cannon jumping onto a face-down piece always captures it if it is an enemy piece.',
+      'tips.src': 'Partly adapted from the Strategy section of the English Wikipedia article “Banqi”.',
 
       'side.you': 'You',
       'side.bot': 'Computer',

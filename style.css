@@ -302,6 +302,8 @@ details[open] > summary::after { transform: rotate(225deg) translate(-2px, -2px)
 .rules ul { margin: 8px 0 0; padding-left: 1.2em; line-height: 1.6; font-size: .9375rem; }
 .rules li + li { margin-top: 4px; }
 .rules-sub { font-weight: 700; margin: 12px 0 0; font-size: .9375rem; }
+/* 技巧卡（#tipsCard，樣子照規則卡）最下面那一行出處：小一號、淡一點，還是 ≥ 14px */
+.tips-src { margin: 10px 0 0; font-size: .875rem; line-height: 1.5; color: var(--ink-2); }
 
 /* ---------- 對局頁 ---------- */
 /* 作者 2026-10-24：手機上整個對局頁一個畫面看完、不捲動。由上往下：上面那條 → 棋盤與兩欄 → 狀態列 → 下面那條，每一列都是固定高度，
